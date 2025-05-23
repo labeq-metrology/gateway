@@ -1,0 +1,260 @@
+package com.labeq.builtin.connections.serial
+
+import com.fazecast.jSerialComm.SerialPort
+import com.labeq.transport.ConnectionConfiguration
+import com.labeq.transport.DeviceConnection
+import com.labeq.transport.DeviceConnectionStatus
+import com.labeq.transport.DeviceConnectionType
+import com.labeq.transport.MessageResult
+import com.labeq.transport.ParameterValue
+import com.labeq.transport.ReturnType
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import org.slf4j.LoggerFactory
+import java.nio.ByteBuffer
+import java.util.concurrent.atomic.AtomicInteger
+
+class SerialConnection(connectionConfiguration: ConnectionConfiguration) : DeviceConnection(
+    connectionConfiguration,
+    DeviceConnectionType.SERIAL
+) {
+    private val log = LoggerFactory.getLogger("SerialConnection@${this.hashCode()}")
+    override var status = DeviceConnectionStatus.DISCONNECTED
+    private val requestCounter = AtomicInteger(0)
+
+    init {
+        requireNotNull(configuration) { "Serial configuration cannot be null" }
+    }
+
+    val serialConfiguration = configuration as SerialConfiguration
+    var port: SerialPort? = null
+
+    override suspend fun open(): Boolean = withContext(Dispatchers.IO) {
+        if (port?.isOpen == true) return@withContext true
+
+        try {
+            port = SerialPort.getCommPort(serialConfiguration.port).apply {
+                if (!openPort()) {
+                    log.error("Failed to open port ${serialConfiguration.port}")
+                    return@withContext false
+                }
+
+                setComPortTimeouts(SerialPort.TIMEOUT_READ_BLOCKING, 10000, 10000)
+                setComPortParameters(
+                    serialConfiguration.baudRate,
+                    serialConfiguration.dataBits,
+                    when (serialConfiguration.stopBits) {
+                        SerialStopBits.ONE -> SerialPort.ONE_STOP_BIT
+                        SerialStopBits.ONE_POINT_FIVE -> SerialPort.ONE_POINT_FIVE_STOP_BITS
+                        SerialStopBits.TWO -> SerialPort.TWO_STOP_BITS
+                    },
+                    when (serialConfiguration.parity) {
+                        SerialParity.NONE -> SerialPort.NO_PARITY
+                        SerialParity.ODD -> SerialPort.ODD_PARITY
+                        SerialParity.EVEN -> SerialPort.EVEN_PARITY
+                        SerialParity.MARK -> SerialPort.MARK_PARITY
+                        SerialParity.SPACE -> SerialPort.SPACE_PARITY
+                    }
+                )
+            }
+            status = DeviceConnectionStatus.CONNECTED
+            true
+        } catch (e: Exception) {
+            log.error("Error opening serial port: ${e.message}")
+            false
+        }
+    }
+
+    override suspend fun close(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            port?.takeIf { it.isOpen }?.closePort() ?: true.also {
+                status = DeviceConnectionStatus.DISCONNECTED
+            }
+        } catch (e: Exception) {
+            log.error("Error closing serial port: ${e.message}")
+            false
+        }
+    }
+
+    override suspend fun send(message: String): MessageResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val port = port ?: return@withContext MessageResult.Error("Port not open")
+            port.outputStream.use { it.write(message.toByteArray()); it.flush() }
+            MessageResult.Result(Unit)
+        } catch (e: Exception) {
+            MessageResult.Error("Failed to send string: ${e.message}")
+        }
+    }
+
+    override suspend fun send(message: ByteArray): MessageResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val port = port ?: return@withContext MessageResult.Error("Port not open")
+            port.outputStream.use { it.write(message); it.flush() }
+            MessageResult.Result(Unit)
+        } catch (e: Exception) {
+            MessageResult.Error("Failed to send bytes: ${e.message}")
+        }
+    }
+
+    override suspend fun query(
+        message: String,
+        expectedBytes: Int,
+        returnType: ReturnType
+    ): MessageResult<ParameterValue> = withContext(Dispatchers.IO) {
+        processRequest(message.toByteArray(), expectedBytes, returnType, true)
+    }
+
+    override suspend fun query(
+        message: ByteArray,
+        expectedBytes: Int,
+        returnType: ReturnType
+    ): MessageResult<ParameterValue> = withContext(Dispatchers.IO) {
+        processRequest(message, expectedBytes, returnType, false)
+    }
+
+    private suspend fun processRequest(
+        data: ByteArray,
+        expectedBytes: Int,
+        returnType: ReturnType,
+        inputWasString: Boolean
+    ): MessageResult<ParameterValue> {
+        val requestId = requestCounter.incrementAndGet()
+        return withContext(Dispatchers.IO) {
+            try {
+                val port = port ?: return@withContext MessageResult.Error("Port not open")
+
+                log.debug("[Request $requestId] Sending ${data.size} bytes")
+                log.debug("[Request $requestId] Sending message: ${data.decodeToString()}")
+                port.outputStream.use { it.write(data); it.flush() }
+
+                val response = if (expectedBytes == -1) {
+                    readResponseUntilStopSequence(port, requestId)
+                } else {
+                    readResponse(port, expectedBytes, requestId)
+                }
+                val transformed = transformResponse(response, returnType, inputWasString)
+                MessageResult.Result(transformed)
+            } catch (e: Exception) {
+                log.error("[Request $requestId] Error: ${e.message}")
+                MessageResult.Error("Communication error: ${e.message}")
+            }
+        }
+    }
+
+    private suspend fun readResponse(
+        port: SerialPort,
+        expectedBytes: Int,
+        requestId: Int
+    ): ByteArray = withContext(Dispatchers.IO) {
+        val buffer = ByteArray(expectedBytes)
+        var totalRead = 0
+        val startTime = System.currentTimeMillis()
+        val timeoutMs = calculateTimeoutMs(expectedBytes)
+
+        log.debug("[Request $requestId] Expecting $expectedBytes bytes with timeout $timeoutMs ms")
+
+        port.inputStream.use { input ->
+            while (totalRead < expectedBytes) {
+                val remainingTime = timeoutMs - (System.currentTimeMillis() - startTime)
+                if (remainingTime <= 0) {
+                    throw Exception("Read timeout after $timeoutMs ms")
+                }
+
+                val available = input.available()
+                if (available > 0) {
+                    val read = input.read(
+                        buffer,
+                        totalRead,
+                        available.coerceAtMost(expectedBytes - totalRead)
+                    )
+                    if (read > 0) {
+                        totalRead += read
+                        log.debug("[Request $requestId] Read $read bytes (total $totalRead/$expectedBytes)")
+                    }
+                } else {
+                    delay(10)
+                }
+            }
+        }
+
+        buffer.copyOf(totalRead)
+    }
+
+    private suspend fun readResponseUntilStopSequence(
+        port: SerialPort,
+        requestId: Int
+    ): ByteArray = withContext(Dispatchers.IO) {
+        val buffer = ByteArray(1024) // Enough to hold small replies
+        var totalRead = 0
+        val startTime = System.currentTimeMillis()
+        val timeoutMs = 3000L // up to 2 seconds for full response
+
+        log.debug("[Request $requestId] Reading until ${serialConfiguration.stopSequence.decodeToString()} with timeout $timeoutMs ms")
+
+        port.inputStream.use { input ->
+            while (true) {
+                val elapsed = System.currentTimeMillis() - startTime
+                if (elapsed > timeoutMs) {
+                    throw Exception("Timeout waiting for ${serialConfiguration.stopSequence.decodeToString()} (after $timeoutMs ms)")
+                }
+
+                val available = input.available()
+                if (available > 0) {
+                    val read = input.read(buffer, totalRead, 1) // read byte-by-byte
+                    if (read > 0) {
+                        totalRead += read
+                        if (totalRead >= serialConfiguration.stopSequence.size) {
+                            var matches = true
+                            for (i in serialConfiguration.stopSequence.indices) {
+                                if (buffer[totalRead - serialConfiguration.stopSequence.size + i] != serialConfiguration.stopSequence[i]) {
+                                    matches = false
+                                    break
+                                }
+                            }
+                            if (matches) {
+                                break // Stop sequence reached
+                            }
+                        }
+                    }
+                } else {
+                    delay(10)
+                }
+            }
+        }
+
+        buffer.copyOf(totalRead)
+    }
+
+
+    private fun transformResponse(
+        data: ByteArray,
+        returnType: ReturnType,
+        inputWasString: Boolean
+    ): ParameterValue {
+        return when (returnType) {
+            ReturnType.SAME_AS_INPUT -> if (inputWasString) {
+                ParameterValue.StringValue(data.decodeToString())
+            } else {
+                ParameterValue.BytesValue(data)
+            }
+
+            ReturnType.STRING -> ParameterValue.StringValue(data.decodeToString())
+            ReturnType.BYTES -> ParameterValue.BytesValue(data)
+            ReturnType.INTEGER -> ParameterValue.IntegerValue(ByteBuffer.wrap(data).int)
+        }
+    }
+
+    private fun calculateTimeoutMs(expectedBytes: Int): Int {
+        val bitsPerByte = serialConfiguration.dataBits +
+                (if (serialConfiguration.parity != SerialParity.NONE) 1 else 0) +
+                when (serialConfiguration.stopBits) {
+                    SerialStopBits.ONE -> 1
+                    SerialStopBits.ONE_POINT_FIVE -> 2
+                    SerialStopBits.TWO -> 2
+                }
+
+        val transmissionTime = (bitsPerByte * expectedBytes * 1000L) / serialConfiguration.baudRate
+        return (transmissionTime + 100L).coerceIn(1000L, 3000L).toInt()
+    }
+}

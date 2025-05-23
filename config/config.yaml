@@ -1,0 +1,9 @@
+server:
+  host: "127.0.0.1"
+  port: 80
+mqttConfig:
+  host: "127.0.0.1"
+  port: 1883
+  ssl: false
+  sslCertPath: ""
+  sslKeyPath: ""
