@@ -10,11 +10,7 @@ import com.labeq.device.generic.ParameterSetter
 import com.labeq.device.generic.StringParameter
 import com.labeq.transport.MessageResult
 import com.labeq.transport.ParameterValue
-import com.labeq.transport.onFailure
-import com.labeq.transport.onSuccess
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.decodeFromString
-import kotlin.reflect.full.memberProperties
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -91,21 +87,21 @@ open class GenericOscilloscope @OptIn(ExperimentalUuidApi::class) constructor(
     }
 
     @ParameterSetter("scope.autoset")
-    suspend fun autoset(value: Int): Boolean {
+    suspend fun autoset(value: ParameterValue): MessageResult<ParameterValue> {
         val result = driver.writeParameter("scope.autoset", ParameterValue.IntegerValue(1))
-        return result is MessageResult.Result
+        return result
     }
 
     @ParameterGetter("scope.acquisition.avg")
     suspend fun getAverageCount(): MessageResult<ParameterValue> {
-        val result = driver.queryParameter("scope.aquisition.avg")
+        val result = driver.queryParameter("scope.acquisition.avg")
         println(result)
         return result
     }
 
     @ParameterSetter("scope.acquisition.avg")
     suspend fun setAverageCount(value: ParameterValue): MessageResult<ParameterValue> {
-        val result = driver.writeParameter("scope.aquisition.avg", value)
+        val result = driver.writeParameter("scope.acquisition.avg", value)
         println(result)
         return result
     }

@@ -26,11 +26,6 @@ class HM107Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConne
 
     }
 
-    private val commands = mapOf(
-        REMOTE_ENABLE to 3,
-        REMOTE_DISABLE to 3,
-    )
-
     override suspend fun queryParameter(
         parameter: String,
         returnType: ReturnType
@@ -49,7 +44,7 @@ class HM107Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConne
     ): MessageResult<ParameterValue> {
         return when (parameter) {
             "scope.autoset" -> autoset()
-            "scope.acquisition.avg" -> writeAvgAcquisitions(value as ParameterValue.IntegerValue)
+            "scope.acquisition.avg" -> setAvgAcquisitions(value as ParameterValue.IntegerValue)
             else -> MessageResult.Error("Invalid parameter: $parameter")
         }
     }
@@ -100,9 +95,7 @@ class HM107Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConne
                 }
             }
 
-            is MessageResult.Result -> {
-                true
-            }
+            is MessageResult.Result -> true
         }
     }
 
@@ -135,6 +128,8 @@ class HM107Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConne
      *
      * Query format: AVRNM?<CR><LF>
      * Response: Single byte containing exponent value
+     *
+     * @return average acquisitions
      */
     private suspend fun queryAvgAcquisitions(): MessageResult<ParameterValue.IntegerValue> {
         if (!connection.open()) return MessageResult.Error("Connection closed!")
@@ -166,7 +161,9 @@ class HM107Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConne
      * @param parameterValue the value to be written (1 <= x <= 9)
      * @return the average acquisitions parameter read **AFTER** trying to write the desired value
      */
-    private suspend fun writeAvgAcquisitions(parameterValue: ParameterValue.IntegerValue): MessageResult<ParameterValue.IntegerValue> {
+    private suspend fun setAvgAcquisitions(
+        parameterValue: ParameterValue.IntegerValue
+    ): MessageResult<ParameterValue.IntegerValue> {
         if (parameterValue.value !in 1..9) return MessageResult.Error("Invalid value: AVRNM must be 1 <= x <= 9")
         if (!connection.open()) return MessageResult.Error("Connection closed!")
         connection.send(AVG_ACQUISITIONS_SET)
@@ -210,7 +207,9 @@ class HM107Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConne
      * @param parameterValue the value to be written (0 or 1)
      * @return the state of the average acquisitions switch read **AFTER** trying to write the parameter
      */
-    private suspend fun writeAvgAcquisitionsSwitch(parameterValue: ParameterValue.IntegerValue): MessageResult<ParameterValue.IntegerValue> {
+    private suspend fun setAvgAcquisitionsSwitch(
+        parameterValue: ParameterValue.IntegerValue
+    ): MessageResult<ParameterValue.IntegerValue> {
         if (!connection.open()) return MessageResult.Error("Connection closed!")
         if (parameterValue.value !in 0..1) return MessageResult.Error("Invalid value: AVRNM must be set to 0 or 1")
         connection.send(AVG_ACQUISITIONS_SWITCH_SET)

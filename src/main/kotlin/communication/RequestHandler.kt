@@ -43,7 +43,7 @@ class RequestHandler @OptIn(DelicateCoroutinesApi::class) constructor(
                 when (request) {
                     is DeviceRequest.ParameterReadRequest -> {
                         val readResult = device.readParameter(request.requestedParameter, request.returnType)
-
+                        println(readResult)
                         readResult
                             .onFailure {
                                 eventBus.publishResolveError(
@@ -64,7 +64,8 @@ class RequestHandler @OptIn(DelicateCoroutinesApi::class) constructor(
                     }
 
                     is DeviceRequest.ParameterWriteRequest -> {
-                        device.setParameter(request.requestedParameter, request.value)
+                        val result = device.setParameter(request.requestedParameter, request.value)
+                        println(result)
                     }
                 }
             }

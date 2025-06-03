@@ -1,13 +1,7 @@
 package com.labeq.builtin.connections.serial
 
 import com.fazecast.jSerialComm.SerialPort
-import com.labeq.transport.ConnectionConfiguration
-import com.labeq.transport.DeviceConnection
-import com.labeq.transport.DeviceConnectionStatus
-import com.labeq.transport.DeviceConnectionType
-import com.labeq.transport.MessageResult
-import com.labeq.transport.ParameterValue
-import com.labeq.transport.ReturnType
+import com.labeq.transport.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -39,7 +33,13 @@ class SerialConnection(connectionConfiguration: ConnectionConfiguration) : Devic
                     log.error("Failed to open port ${serialConfiguration.port}")
                     return@withContext false
                 }
-
+                setFlowControl(
+                    when(serialConfiguration.flowControl) {
+                        SerialFlowControl.NONE -> SerialPort.FLOW_CONTROL_DISABLED
+                        SerialFlowControl.SOFTWARE -> SerialPort.FLOW_CONTROL_RTS_ENABLED or SerialPort.FLOW_CONTROL_CTS_ENABLED
+                        SerialFlowControl.HARDWARE -> SerialPort.FLOW_CONTROL_XONXOFF_IN_ENABLED or SerialPort.FLOW_CONTROL_XONXOFF_OUT_ENABLED
+                    }
+                )
                 setComPortTimeouts(SerialPort.TIMEOUT_READ_BLOCKING, 10000, 10000)
                 setComPortParameters(
                     serialConfiguration.baudRate,

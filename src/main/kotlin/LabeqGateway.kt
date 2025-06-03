@@ -30,10 +30,14 @@ class LabeqGateway(configuration: LabeqGatewayConfiguration) {
         return true
     }
 
+    fun registerDevices(vararg devices: GenericDevice) = devices.forEach { registerDevice(it) }
+
     fun unregisterDevice(device: GenericDevice): Boolean {
         log.info("Unregistering device: ${device.model} by ${device.manufacturer}, ${device.name}@${device.uuid}")
         devices.remove(device.uuid)
         device.disconnect()
         return true
     }
+
+    fun unregisterDevices(vararg devices: GenericDevice) = devices.forEach { unregisterDevice(it) }
 }
