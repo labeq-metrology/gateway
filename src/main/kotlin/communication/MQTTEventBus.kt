@@ -4,7 +4,12 @@ import com.labeq.config.MQTTConfig
 import com.labeq.device.generic.GenericDevice
 import com.labeq.transport.ParameterValue
 import io.github.davidepianca98.mqtt.broker.Broker
+import io.github.davidepianca98.mqtt.broker.interfaces.PacketInterceptor
+import io.github.davidepianca98.mqtt.packets.MQTTPacket
 import io.github.davidepianca98.mqtt.packets.Qos
+import io.github.davidepianca98.mqtt.packets.mqtt.MQTTConnect
+import io.github.davidepianca98.mqtt.packets.mqtt.MQTTPublish
+import io.github.davidepianca98.mqtt.packets.mqtt.MQTTSubscribe
 import io.github.davidepianca98.mqtt.packets.mqttv5.MQTT5Properties
 import io.github.davidepianca98.toBase64
 import kotlinx.serialization.json.Json
@@ -16,22 +21,26 @@ import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalUnsignedTypes::class, ExperimentalUuidApi::class)
-class MQTTEventBus(configuration: MQTTConfig) {
+class MQTTEventBus(configuration: MQTTConfig, val devices: MutableMap<Uuid, GenericDevice>) {
     companion object {
         // Global topics
         val DEVICE_TOPIC = "device"
 
         // Device topics
         val DEVICE_PARAMETER_UPDATE_TOPIC = "$DEVICE_TOPIC/{uuid}/parameters/{parameter}/update"
+        val DEVICE_PARAMETER_READ_TOPIC   = "$DEVICE_TOPIC/{uuid}/parameters/{parameter}/read"
+        val DEVICE_PARAMETER_WRITE_TOPIC   = "$DEVICE_TOPIC/{uuid}/parameters/{parameter}/write"
         val DEVICE_PARAMETER_REQUEST_RESOLVE = "$DEVICE_TOPIC/{uuid}/requests/{request}/resolve"
     }
+
+    val requestHandler = RequestHandler(devices, this)
 
     private lateinit var thread: Thread;
     private val log = LoggerFactory.getLogger("MQTTEventBus")
     private val broker: Broker = Broker(
         port = configuration.port.value,
         host = configuration.host.value,
-//        tlsSettings = TLSSettings("1.2", "", "", false)
+        packetInterceptor = MQTTInterceptor(this)
     )
 
     fun listen() {
@@ -61,15 +70,13 @@ class MQTTEventBus(configuration: MQTTConfig) {
         publish(
             topic, buildJsonObject {
                 put("newValue", transformedValue)
-                put(
-                    "contentType", when (value) {
-                        is ParameterValue.IntegerValue -> "integer"
-                        is ParameterValue.BytesValue -> "bytes"
-                        is ParameterValue.StringValue -> "string"
-                    }
-                )
             }.toString().toByteArray().toUByteArray(),
-            retain = true
+            true,
+            when (value) {
+                is ParameterValue.IntegerValue -> "integer"
+                is ParameterValue.BytesValue -> "bytes"
+                is ParameterValue.StringValue -> "string"
+            }
         )
     }
 
@@ -93,14 +100,13 @@ class MQTTEventBus(configuration: MQTTConfig) {
                 put("request", requestId.toString())
                 put("parameter", parameter)
                 put("resolvedValue", transformedValue)
-                put(
-                    "contentType", when (value) {
-                        is ParameterValue.IntegerValue -> "integer"
-                        is ParameterValue.BytesValue -> "bytes"
-                        is ParameterValue.StringValue -> "string"
-                    }
-                )
             }.toString().toByteArray().toUByteArray(),
+            false,
+            when (value) {
+                is ParameterValue.IntegerValue -> "integer"
+                is ParameterValue.BytesValue -> "bytes"
+                is ParameterValue.StringValue -> "string"
+            }
         )
     }
 
@@ -120,6 +126,8 @@ class MQTTEventBus(configuration: MQTTConfig) {
                 put("parameter", parameter)
                 put("error", error)
             }.toString().toByteArray().toUByteArray(),
+            false,
+            "error"
         )
     }
 
@@ -131,13 +139,30 @@ class MQTTEventBus(configuration: MQTTConfig) {
         return result
     }
 
-    private fun publish(topic: String, payload: UByteArray, retain: Boolean = false) {
+    private fun publish(topic: String, payload: UByteArray, retain: Boolean = false, contentType: String = "string") {
         broker.publish(
             retain = retain,
             topicName = topic,
-            qos = Qos.AT_MOST_ONCE,
-            properties = MQTT5Properties(),
+            qos = Qos.AT_LEAST_ONCE,
+            properties = MQTT5Properties(
+                payloadFormatIndicator = 1u,
+                contentType = "labeq/$contentType"
+            ),
             payload
         )
+    }
+
+    private class MQTTInterceptor(val bus: MQTTEventBus) : PacketInterceptor {
+        override fun packetReceived(
+            clientId: String,
+            username: String?,
+            password: UByteArray?,
+            packet: MQTTPacket
+        ) {
+            when (packet) {
+                is MQTTPublish -> bus.requestHandler.handlePublish(packet)
+                is MQTTConnect -> println("${packet.clientID} ${packet.protocolName}")
+            }
+        }
     }
 }

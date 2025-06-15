@@ -1,7 +1,6 @@
 package com.labeq
 
 import com.labeq.communication.MQTTEventBus
-import com.labeq.communication.RequestHandler
 import com.labeq.config.LabeqGatewayConfiguration
 import com.labeq.device.generic.GenericDevice
 import io.ktor.util.logging.Logger
@@ -15,8 +14,7 @@ class LabeqGateway(configuration: LabeqGatewayConfiguration) {
 
     var devices = mutableMapOf<Uuid, GenericDevice>()
 
-    val eventBus = MQTTEventBus(configuration.mqttConfig)
-    val requestHandler = RequestHandler(devices, eventBus)
+    val eventBus = MQTTEventBus(configuration.mqttConfig, devices)
 
     init {
         log.info("Initializing Labeq Gateway")

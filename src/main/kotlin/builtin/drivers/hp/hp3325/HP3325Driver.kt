@@ -6,13 +6,17 @@ import kotlinx.coroutines.runBlocking
 
 class HP3325Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConnection) {
     private companion object {
+        // Device status
         const val REMOTE_ENABLE = "RMT"
         const val LOCAL_ENABLE = "LCL"
         const val RESET_DEVICE = "RST"
 
+        // Signal properties
         const val AMPLITUDE = "AM"
         const val FREQUENCY = "FR"
+        const val FUNCTION  = "FU"
 
+        // Cosmetic
         const val DISPLAY_STRING = "DSP"
 
         const val INTERROGATE = "?"
@@ -22,8 +26,8 @@ class HP3325Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConn
         parameter: String, returnType: ReturnType
     ): MessageResult<ParameterValue> {
         return when (parameter) {
-            "generator.frequency" -> readFrequency()
-            "generator.amplitude" -> readAmplitude()
+            HP3325Device.PARAMETER_GENERATOR_FREQUENCY -> readFrequency()
+            HP3325Device.PARAMETER_GENERATOR_AMPLITUDE -> readAmplitude()
             else -> MessageResult.Error("Invalid parameter: $parameter")
         }
     }
@@ -32,8 +36,8 @@ class HP3325Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConn
         parameter: String, value: ParameterValue, returnType: ReturnType
     ): MessageResult<ParameterValue> {
         return when (parameter) {
-            "generator.frequency" -> setFrequency(value as ParameterValue.StringValue)
-            "generator.amplitude" -> setAmplitude(value as ParameterValue.StringValue)
+            HP3325Device.PARAMETER_GENERATOR_FREQUENCY -> setFrequency(value as ParameterValue.StringValue)
+            HP3325Device.PARAMETER_GENERATOR_AMPLITUDE -> setAmplitude(value as ParameterValue.StringValue)
             else -> MessageResult.Error("Invalid parameter: $parameter")
         }
     }
@@ -97,7 +101,7 @@ class HP3325Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConn
 
     suspend fun setAmplitude(amplitude: ParameterValue.StringValue): MessageResult<ParameterValue> {
         if (!connection.open()) return MessageResult.Error("Connection is not open")
-        if (!("[0-9]+VO|VR|DB".toRegex() matches amplitude.value)) return MessageResult.Error("Invalid amplitude format: ${amplitude.value}")
+        if (!("[0-9]+MR|VR|MV|VO|DB|DV".toRegex() matches amplitude.value)) return MessageResult.Error("Invalid amplitude format: ${amplitude.value}")
         val amplitudeValue = amplitude.value.dropLast(2).toDouble()
         if (amplitudeValue < 0 || amplitudeValue > 40) return MessageResult.Error("Invalid amplitude: ${amplitude.value}")
         connection.send(AMPLITUDE + amplitude.value)
@@ -113,6 +117,26 @@ class HP3325Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConn
             )
         }
         return MessageResult.Error("Unknown error")
+    }
+
+    suspend fun readFunction(): MessageResult<ParameterValue> {
+        if (!connection.open()) return MessageResult.Error("Connection is not open")
+        connection.query(FUNCTION + INTERROGATE, -1).onSuccess {
+            if (it !is ParameterValue.StringValue) return MessageResult.Error("Invalid result $it")
+            val function = it.value.removePrefix("FU").toInt()
+            if (function !in 0..5) return MessageResult.Error("Result out of range: ${it.value}")
+            return MessageResult.Result(
+                ParameterValue.IntegerValue(function)
+            )
+        }
+        return MessageResult.Error("Unknown error")
+    }
+
+    suspend fun setFunction(function: ParameterValue.IntegerValue): MessageResult<ParameterValue> {
+        if (!connection.open()) return MessageResult.Error("Connection is not open")
+        if (function.value !in 0..5) return MessageResult.Error("Invalid function: ${function.value}")
+        connection.send(FUNCTION + function.value)
+        return readFunction()
     }
 
 }

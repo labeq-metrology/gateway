@@ -76,7 +76,7 @@ fun Application.module() {
 //    Thread.sleep(20000)
     gateway.registerDevices(generator, scope)
     for (i in 1..30) {
-        gateway.requestHandler.add(
+        gateway.eventBus.requestHandler.add(
             generator.uuid,
             DeviceRequest.ParameterWriteRequest(
                 generator.uuid,
@@ -84,7 +84,7 @@ fun Application.module() {
                 ParameterValue.StringValue("${(i % 20)}VO")
             )
         )
-        gateway.requestHandler.add(
+        gateway.eventBus.requestHandler.add(
             scope.uuid,
             DeviceRequest.ParameterWriteRequest(
                 scope.uuid,

@@ -13,9 +13,16 @@ class HP3325Device(
     eventBus: MQTTEventBus, name: String, manufacturer: String, model: String, uuid: Uuid,
     driver: DeviceDriver,
 ) : GenericDevice(eventBus, name, manufacturer, model, uuid, driver) {
+    companion object {
+        const val PARAMETER_GENERATOR_FREQUENCY = "generator.frequency"
+        const val PARAMETER_GENERATOR_AMPLITUDE = "generator.amplitude"
+        const val PARAMETER_GENERATOR_FUNCTION = "generator.function"
+    }
+
     override val parameters: Map<String, DeviceParameter<*>> = mapOf(
-        "generator.frequency" to StringParameter("0HZ"),
-        "generator.amplitude" to StringParameter(".001VO"),
+        PARAMETER_GENERATOR_FREQUENCY to StringParameter("0HZ"),
+        PARAMETER_GENERATOR_AMPLITUDE to StringParameter(".001VO"),
+        PARAMETER_GENERATOR_FUNCTION to IntegerParameter(0)
     )
 
     override fun writeState(force: Boolean): Boolean {
@@ -29,17 +36,24 @@ class HP3325Device(
     override fun connect(): Boolean = driver.connect()
     override fun disconnect(): Boolean = driver.disconnect()
 
-    @ParameterSetter("generator.frequency")
+    @ParameterSetter(PARAMETER_GENERATOR_FREQUENCY)
     suspend fun setFrequency(value: ParameterValue): MessageResult<ParameterValue> =
-        driver.writeParameter("generator.frequency", value)
+        driver.writeParameter(PARAMETER_GENERATOR_FREQUENCY, value)
 
-    @ParameterGetter("generator.frequency")
-    suspend fun getFrequency(): MessageResult<ParameterValue> = driver.queryParameter("generator.frequency")
+    @ParameterGetter(PARAMETER_GENERATOR_FREQUENCY)
+    suspend fun getFrequency(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_GENERATOR_FREQUENCY)
 
-    @ParameterSetter("generator.amplitude")
+    @ParameterSetter(PARAMETER_GENERATOR_AMPLITUDE)
     suspend fun setAmplitude(value: ParameterValue): MessageResult<ParameterValue> =
-        driver.writeParameter("generator.amplitude", value)
+        driver.writeParameter(PARAMETER_GENERATOR_AMPLITUDE, value)
 
-    @ParameterSetter("generator.amplitude")
-    suspend fun getAmplitude(): MessageResult<ParameterValue> = driver.queryParameter("generator.amplitude")
+    @ParameterGetter(PARAMETER_GENERATOR_AMPLITUDE)
+    suspend fun getAmplitude(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_GENERATOR_AMPLITUDE)
+
+    @ParameterSetter(PARAMETER_GENERATOR_FUNCTION)
+    suspend fun setFunction(value: ParameterValue): MessageResult<ParameterValue> =
+        driver.writeParameter(PARAMETER_GENERATOR_FUNCTION, value)
+
+    @ParameterGetter(PARAMETER_GENERATOR_FUNCTION)
+    suspend fun getFunction(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_GENERATOR_FUNCTION)
 }

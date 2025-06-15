@@ -82,7 +82,7 @@ fun <T> MessageResult<T>.errorOrNull(): String? = when (this) {
  * @param action A lambda function to be invoked with the value of the successful result.
  * @return The original [MessageResult] instance for chaining operations.
  */
-suspend inline fun <T> MessageResult<T>.onSuccess(action: suspend (T) -> Unit): MessageResult<T> {
+suspend inline fun <T> MessageResult<T>.onSuccessAsync(action: suspend (T) -> Unit): MessageResult<T> {
     if (this is MessageResult.Result) action(result)
     return this
 }
@@ -95,7 +95,35 @@ suspend inline fun <T> MessageResult<T>.onSuccess(action: suspend (T) -> Unit): 
  * @param action A lambda function that receives an error message as a [String] and performs some processing.
  * @return The same [MessageResult] instance, allowing for method chaining.
  */
-suspend inline fun <T> MessageResult<T>.onFailure(action: suspend (String) -> Unit): MessageResult<T> {
+suspend inline fun <T> MessageResult<T>.onFailureAsync(action: suspend (String) -> Unit): MessageResult<T> {
+    if (this is MessageResult.Error) action(error)
+    return this
+}
+
+/**
+ * Executes the provided action if the [MessageResult] instance represents a successful result.
+ *
+ * This function checks if the current [MessageResult] is of type [MessageResult.Result].
+ * If so, the provided `action` is invoked with the encapsulated successful result.
+ * The original [MessageResult] is returned to allow for chaining operations.
+ *
+ * @param action A lambda function to be invoked with the value of the successful result.
+ * @return The original [MessageResult] instance for chaining operations.
+ */
+inline fun <T> MessageResult<T>.onSuccess(action: (T) -> Unit): MessageResult<T> {
+    if (this is MessageResult.Result) action(result)
+    return this
+}
+
+/**
+ * Executes the given action if the current instance is of type [MessageResult.Error],
+ * passing the error message as a parameter to the action. This can be used to handle
+ * error scenarios in a streamlined manner.
+ *
+ * @param action A lambda function that receives an error message as a [String] and performs some processing.
+ * @return The same [MessageResult] instance, allowing for method chaining.
+ */
+inline fun <T> MessageResult<T>.onFailure(action: (String) -> Unit): MessageResult<T> {
     if (this is MessageResult.Error) action(error)
     return this
 }
