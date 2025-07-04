@@ -39,7 +39,7 @@ abstract class GenericDevice @OptIn(ExperimentalUuidApi::class) constructor(
      * Parameter interaction is generally done through helper functions or annotations (`ParameterSetter`
      * and `ParameterGetter`) to ensure proper validation and type consistency.
      */
-    abstract val parameters: Map<String, DeviceParameter<*>>
+    abstract val parameters: MutableMap<String, ParameterValue>
 
     private fun validateParameter(parameter: String): MessageResult<ParameterValue>? {
         return if (!parameters.containsKey(parameter)) {
@@ -99,14 +99,17 @@ abstract class GenericDevice @OptIn(ExperimentalUuidApi::class) constructor(
         return try {
             function.isAccessible = true
             when (val result = function.callSuspend(this) as MessageResult<*>) {
-                is MessageResult.Error -> MessageResult.Error("Failed to read parameter $parameter: ${result.error}")
+                is MessageResult.Error -> MessageResult.Error("Failed to call parameter $parameter: ${result.error}")
                 is MessageResult.Result -> {
                     val value = result.getOrNull() as ParameterValue
                     notifyParameterUpdate(parameter, value)
                     when (returnType) {
-                        ReturnType.STRING, ReturnType.SAME_AS_INPUT -> MessageResult.Result(value as ParameterValue.StringValue)
-                        ReturnType.BYTES -> MessageResult.Result(value as ParameterValue.BytesValue)
-                        ReturnType.INTEGER -> MessageResult.Result(value as ParameterValue.IntegerValue)
+                        ReturnType.String, ReturnType.SameAsInput -> MessageResult.Result(value as ParameterValue.StringValue)
+                        ReturnType.Bytes -> MessageResult.Result(value as ParameterValue.BytesValue)
+                        ReturnType.Integer -> MessageResult.Result(value as ParameterValue.IntegerValue)
+                        ReturnType.Double -> MessageResult.Result(value as ParameterValue.DoubleValue)
+                        ReturnType.IntegerArray -> MessageResult.Result(value as ParameterValue.IntegerArrayValue)
+                        ReturnType.DoubleArray -> MessageResult.Result(value as ParameterValue.DoubleArrayValue)
                     }
                 }
             }

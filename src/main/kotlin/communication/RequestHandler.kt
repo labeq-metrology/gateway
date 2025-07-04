@@ -22,7 +22,7 @@ sealed class DeviceRequest(val requestId: Uuid) {
     data class ParameterReadRequest(
         val id: Uuid,
         val requestedParameter: String,
-        val returnType: ReturnType = ReturnType.STRING
+        val returnType: ReturnType = ReturnType.String
     ) : DeviceRequest(id)
 
     data class ParameterWriteRequest(val id: Uuid, val requestedParameter: String, val value: ParameterValue) :
@@ -73,7 +73,8 @@ class RequestHandler @OptIn(DelicateCoroutinesApi::class) constructor(
                     }
 
                     is DeviceRequest.ParameterWriteRequest -> {
-                        device.setParameter(request.requestedParameter, request.value)
+                        println(request)
+                        println(device.setParameter(request.requestedParameter, request.value))
                     }
                 }
             }

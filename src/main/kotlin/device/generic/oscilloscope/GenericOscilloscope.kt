@@ -2,12 +2,9 @@ package com.labeq.device.generic.oscilloscope
 
 import com.labeq.communication.MQTTEventBus
 import com.labeq.device.DeviceDriver
-import com.labeq.device.generic.DeviceParameter
 import com.labeq.device.generic.GenericDevice
-import com.labeq.device.generic.IntegerParameter
 import com.labeq.device.generic.ParameterGetter
 import com.labeq.device.generic.ParameterSetter
-import com.labeq.device.generic.StringParameter
 import com.labeq.transport.MessageResult
 import com.labeq.transport.ParameterValue
 import kotlinx.serialization.json.Json
@@ -36,10 +33,10 @@ open class GenericOscilloscope @OptIn(ExperimentalUuidApi::class) constructor(
     driver: DeviceDriver
 ) : GenericDevice(eventBus, name, manufacturer, model, uuid, driver) {
     var triggers = arrayListOf<OscilloscopeTrigger>()
-    override val parameters: Map<String, DeviceParameter<*>> = mapOf(
-        "triggers" to StringParameter(""),
-        "scope.autoset" to IntegerParameter(0),
-        "scope.acquisition.avg" to IntegerParameter(0)
+    override val parameters: MutableMap<String, ParameterValue> = mutableMapOf(
+        "triggers" to ParameterValue.StringValue(""),
+        "scope.autoset" to ParameterValue.IntegerValue(0),
+        "scope.acquisition.avg" to ParameterValue.IntegerValue(0)
     )
 
     override fun writeState(force: Boolean): Boolean {
@@ -72,7 +69,7 @@ open class GenericOscilloscope @OptIn(ExperimentalUuidApi::class) constructor(
      */
     @ParameterSetter("triggers")
     fun setTriggersParameter(value: String) {
-        (parameters["triggers"] as StringParameter).value = value
+        parameters["triggers"] = ParameterValue.StringValue(value)
         triggers = Json.decodeFromString<ArrayList<OscilloscopeTrigger>>(value)
     }
 

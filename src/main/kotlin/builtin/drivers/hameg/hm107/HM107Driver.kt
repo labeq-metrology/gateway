@@ -24,6 +24,19 @@ class HM107Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConne
         const val AVG_ACQUISITIONS_SWITCH_GET = "${AVG_ACQUISITIONS}SW?"
         const val AVG_ACQUISITIONS_SWITCH_SET = "${AVG_ACQUISITIONS}SW="
 
+        // Channels
+        const val CHANNEL_1 = "CH1"
+        const val CHANNEL_1_SETTINGS_GET = "$CHANNEL_1?"
+        const val CHANNEL_1_SETTINGS_SET = "$CHANNEL_1="
+
+        const val CHANNEL_2 = "CH2"
+        const val CHANNEL_2_SETTINGS_GET = "$CHANNEL_2?"
+        const val CHANNEL_2_SETTINGS_SET = "$CHANNEL_2="
+
+        // Waveform
+        const val WAVEFORM_PREAMBLE = "WFMPRE"
+        const val READ_WAVEFORM = "RDWFM"
+
     }
 
     override suspend fun queryParameter(
@@ -32,7 +45,12 @@ class HM107Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConne
     ): MessageResult<ParameterValue> {
         return when (parameter) {
             "scope.acquisition.avg" -> queryAvgAcquisitions()
-            "scope.acquisition.switch" -> queryAvgAcquisitionsSwitch()
+            HM107Device.PARAMETER_AVG_NUMBER_OF_ACQUISITIONS_SWITCH -> queryAvgAcquisitionsSwitch()
+            HM107Device.PARAMETER_WAVEFORM_PREAMBLE -> queryWaveformPreamble()
+            HM107Device.PARAMETER_CHANNEL_1_WAVEFORM -> queryWaveform(1)
+            HM107Device.PARAMETER_CHANNEL_2_WAVEFORM -> queryWaveform(2)
+            HM107Device.PARAMETER_CHANNEL_1_SETTINGS -> queryChannelSettings(1)
+            HM107Device.PARAMETER_CHANNEL_2_SETTINGS -> queryChannelSettings(2)
             else -> MessageResult.Error("Invalid parameter: $parameter")
         }
     }
@@ -45,6 +63,8 @@ class HM107Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConne
         return when (parameter) {
             "scope.autoset" -> autoset()
             "scope.acquisition.avg" -> setAvgAcquisitions(value as ParameterValue.IntegerValue)
+            HM107Device.PARAMETER_CHANNEL_1_WAVEFORM -> MessageResult.Error("Read-only parameter")
+            HM107Device.PARAMETER_CHANNEL_2_WAVEFORM -> MessageResult.Error("Read-only parameter")
             else -> MessageResult.Error("Invalid parameter: $parameter")
         }
     }
@@ -113,7 +133,7 @@ class HM107Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConne
     private suspend fun autoset(): MessageResult<ParameterValue> {
         if (!connection.open()) return MessageResult.Error("Connection closed!")
         connection.query(AUTOSET, -1)
-            .onSuccess {
+            .onSuccessAsync {
                 return MessageResult.Result(ParameterValue.IntegerValue(1))
             }
         return MessageResult.Error("Autoset failed")
@@ -133,8 +153,8 @@ class HM107Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConne
      */
     private suspend fun queryAvgAcquisitions(): MessageResult<ParameterValue.IntegerValue> {
         if (!connection.open()) return MessageResult.Error("Connection closed!")
-        connection.query(AVG_ACQUISITIONS_GET, 7, ReturnType.BYTES)
-            .onSuccess {
+        connection.query(AVG_ACQUISITIONS_GET, 7, ReturnType.Bytes)
+            .onSuccessAsync {
                 when (it) {
                     is ParameterValue.BytesValue -> {
                         if (it.value.size != 7) return MessageResult.Error("Invalid response")
@@ -168,7 +188,7 @@ class HM107Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConne
         if (!connection.open()) return MessageResult.Error("Connection closed!")
         connection.send(AVG_ACQUISITIONS_SET)
         connection.query(byteArrayOf(parameterValue.value.toByte()), -1)
-            .onSuccess { return queryAvgAcquisitions() }
+            .onSuccessAsync { return queryAvgAcquisitions() }
         return MessageResult.Error("Invalid response")
     }
 
@@ -187,8 +207,8 @@ class HM107Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConne
      */
     private suspend fun queryAvgAcquisitionsSwitch(): MessageResult<ParameterValue.IntegerValue> {
         if (!connection.open()) return MessageResult.Error("Connection closed!")
-        connection.query(AVG_ACQUISITIONS_SWITCH_GET, 9, ReturnType.STRING)
-            .onSuccess {
+        connection.query(AVG_ACQUISITIONS_SWITCH_GET, 9, ReturnType.String)
+            .onSuccessAsync {
                 if (it !is ParameterValue.StringValue) return MessageResult.Error("Invalid response")
                 return MessageResult.Result(ParameterValue.IntegerValue(it.value.last().digitToInt()))
             }
@@ -213,9 +233,54 @@ class HM107Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConne
         if (!connection.open()) return MessageResult.Error("Connection closed!")
         if (parameterValue.value !in 0..1) return MessageResult.Error("Invalid value: AVRNM must be set to 0 or 1")
         connection.send(AVG_ACQUISITIONS_SWITCH_SET)
-        connection.query(parameterValue.value.toString(), -1, ReturnType.STRING)
-            .onSuccess {
+        connection.query(parameterValue.value.toString(), -1, ReturnType.String)
+            .onSuccessAsync {
                 return queryAvgAcquisitionsSwitch()
+            }
+        return MessageResult.Error("Invalid response")
+    }
+
+    // Channels
+
+    private suspend fun queryChannelSettings(channel: Int): MessageResult<ParameterValue.BytesValue> {
+        if (!connection.open()) return MessageResult.Error("Connection closed!")
+        if (channel != 1 && channel != 2) return MessageResult.Error("Invalid channel")
+        connection.send(if (channel == 1) CHANNEL_1 else CHANNEL_2)
+        connection.query("?", 5, ReturnType.Bytes)
+            .onSuccessAsync {
+                if (it !is ParameterValue.BytesValue) return MessageResult.Error("Invalid response")
+                return MessageResult.Result(
+                    ParameterValue.BytesValue(it.value.drop(4).toByteArray())
+                )
+            }
+        return MessageResult.Error("Invalid response")
+    }
+
+    // Waveform
+
+    private suspend fun queryWaveformPreamble(): MessageResult<ParameterValue.BytesValue> {
+        if (!connection.open()) return MessageResult.Error("Connection closed!")
+        connection.query("$WAVEFORM_PREAMBLE?", 17, ReturnType.Bytes)
+            .onSuccessAsync {
+                if (it !is ParameterValue.BytesValue) return MessageResult.Error("Invalid response")
+                return MessageResult.Result(
+                    ParameterValue.BytesValue(it.value.drop(7).toByteArray()) // drop "WFMPRE:"
+                )
+            }
+        return MessageResult.Error("Invalid response")
+    }
+
+    private suspend fun queryWaveform(channel: Int): MessageResult<ParameterValue.BytesValue> {
+        if (!connection.open()) return MessageResult.Error("Connection closed!")
+        if (channel != 1 && channel != 2) return MessageResult.Error("Invalid channel")
+        connection.send("$READ_WAVEFORM$channel:")
+        connection.send(byteArrayOf(0, 0, 0, 8))
+        connection.query(CRLF, 2048 + 11, ReturnType.Bytes)
+            .onSuccessAsync {
+                if (it !is ParameterValue.BytesValue) return MessageResult.Error("Invalid response")
+                return MessageResult.Result(
+                    ParameterValue.BytesValue(it.value.drop(11).toByteArray())
+                )
             }
         return MessageResult.Error("Invalid response")
     }

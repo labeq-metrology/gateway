@@ -2,18 +2,20 @@ package com.labeq
 
 import com.charleskorn.kaml.Yaml
 import com.labeq.builtin.connections.serial.*
+import com.labeq.builtin.drivers.hameg.hm107.HM107Device
 import com.labeq.builtin.drivers.hameg.hm107.HM107Driver
 import com.labeq.builtin.drivers.hp.hp3325.HP3325Device
 import com.labeq.builtin.drivers.hp.hp3325.HP3325Driver
 import com.labeq.communication.DeviceRequest
 import com.labeq.config.*
 import com.labeq.config.ServerConfig
-import com.labeq.device.generic.oscilloscope.GenericOscilloscope
 import com.labeq.transport.ParameterValue
+import com.labeq.transport.ReturnType
 import com.sksamuel.hoplite.ConfigLoaderBuilder
 import com.sksamuel.hoplite.ExperimentalHoplite
 import com.sksamuel.hoplite.addFileSource
 import io.ktor.server.application.*
+import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.nio.file.Paths
 import kotlin.uuid.ExperimentalUuidApi
@@ -45,7 +47,7 @@ fun Application.module() {
     configureRouting()
 
     gateway = LabeqGateway(config)
-    val scope = GenericOscilloscope(
+    val scope = HM107Device(
         gateway.eventBus, "A", "B", "C", Uuid.random(), HM107Driver(
             SerialConnection(
                 SerialConfiguration(
@@ -73,24 +75,28 @@ fun Application.module() {
         )
     )
 
-//    Thread.sleep(20000)
-    gateway.registerDevices(generator, scope)
-    for (i in 1..30) {
+    gateway.registerDevices(scope, generator)
+
+    runBlocking {
         gateway.eventBus.requestHandler.add(
             generator.uuid,
             DeviceRequest.ParameterWriteRequest(
-                generator.uuid,
-                "generator.amplitude",
-                ParameterValue.StringValue("${(i % 20)}VO")
+                Uuid.random(), HP3325Device.PARAMETER_GENERATOR_FREQUENCY,
+                ParameterValue.StringValue("1KH")
             )
         )
         gateway.eventBus.requestHandler.add(
-            scope.uuid,
+            generator.uuid,
             DeviceRequest.ParameterWriteRequest(
-                scope.uuid,
-                "scope.autoset",
-                ParameterValue.IntegerValue(i % 9)
+                Uuid.random(), HP3325Device.PARAMETER_GENERATOR_AMPLITUDE,
+                ParameterValue.StringValue("5VO")
             )
+        )
+        Thread.sleep(5000)
+        gateway.eventBus.requestHandler.add(
+            scope.uuid,
+            DeviceRequest.ParameterReadRequest(Uuid.random(), HM107Device.PARAMETER_CHANNEL_1_WAVEFORM_VOLTAGE,
+                ReturnType.DoubleArray)
         )
     }
 }

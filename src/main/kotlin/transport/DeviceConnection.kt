@@ -99,7 +99,7 @@ abstract class DeviceConnection(val configuration: ConnectionConfiguration, val 
     abstract suspend fun query(
         message: String,
         expectedBytes: Int,
-        returnType: ReturnType = ReturnType.SAME_AS_INPUT
+        returnType: ReturnType = ReturnType.SameAsInput
     ): MessageResult<ParameterValue>
 
     /**
@@ -119,6 +119,6 @@ abstract class DeviceConnection(val configuration: ConnectionConfiguration, val 
     abstract suspend fun query(
         message: ByteArray,
         expectedBytes: Int,
-        returnType: ReturnType = ReturnType.SAME_AS_INPUT
+        returnType: ReturnType = ReturnType.SameAsInput
     ): MessageResult<ParameterValue>
 }

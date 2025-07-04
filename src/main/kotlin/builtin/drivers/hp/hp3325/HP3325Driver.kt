@@ -80,7 +80,7 @@ class HP3325Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConn
     // TODO: Use [ParameterValue] and check for different cases
     suspend fun setFrequency(frequency: ParameterValue.StringValue): MessageResult<ParameterValue> {
         if (!connection.open()) return MessageResult.Error("Connection is not open")
-        val frequencyRegex = Regex.fromLiteral("[0-9]+(HZ|KH|MH)")
+        val frequencyRegex = Regex("[0-9]+(HZ|KH|MH)")
         if (!frequencyRegex.matches(frequency.value)) return MessageResult.Error("Invalid frequency format: ${frequency.value}")
         val frequencyValue = frequency.value.dropLast(2).toDouble()
         if (frequencyValue < 0 || frequencyValue > 60999999.999) return MessageResult.Error("Invalid frequency: ${frequency.value}")
@@ -101,7 +101,7 @@ class HP3325Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConn
 
     suspend fun setAmplitude(amplitude: ParameterValue.StringValue): MessageResult<ParameterValue> {
         if (!connection.open()) return MessageResult.Error("Connection is not open")
-        if (!("[0-9]+MR|VR|MV|VO|DB|DV".toRegex() matches amplitude.value)) return MessageResult.Error("Invalid amplitude format: ${amplitude.value}")
+        if (!(Regex("[0-9]+(MR|VR|MV|VO|DB|DV)") matches amplitude.value)) return MessageResult.Error("Invalid amplitude format: ${amplitude.value}")
         val amplitudeValue = amplitude.value.dropLast(2).toDouble()
         if (amplitudeValue < 0 || amplitudeValue > 40) return MessageResult.Error("Invalid amplitude: ${amplitude.value}")
         connection.send(AMPLITUDE + amplitude.value)

@@ -233,15 +233,16 @@ class SerialConnection(connectionConfiguration: ConnectionConfiguration) : Devic
         inputWasString: Boolean
     ): ParameterValue {
         return when (returnType) {
-            ReturnType.SAME_AS_INPUT -> if (inputWasString) {
+            ReturnType.SameAsInput -> if (inputWasString) {
                 ParameterValue.StringValue(data.decodeToString())
             } else {
                 ParameterValue.BytesValue(data)
             }
 
-            ReturnType.STRING -> ParameterValue.StringValue(data.decodeToString())
-            ReturnType.BYTES -> ParameterValue.BytesValue(data)
-            ReturnType.INTEGER -> ParameterValue.IntegerValue(ByteBuffer.wrap(data).int)
+            ReturnType.String -> ParameterValue.StringValue(data.decodeToString())
+            ReturnType.Bytes -> ParameterValue.BytesValue(data)
+            ReturnType.Integer -> ParameterValue.IntegerValue(ByteBuffer.wrap(data).int)
+            else -> ParameterValue.StringValue(data.decodeToString()) // TODO: Handle arrays
         }
     }
 

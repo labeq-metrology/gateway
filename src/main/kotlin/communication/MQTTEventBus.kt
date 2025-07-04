@@ -9,10 +9,8 @@ import io.github.davidepianca98.mqtt.packets.MQTTPacket
 import io.github.davidepianca98.mqtt.packets.Qos
 import io.github.davidepianca98.mqtt.packets.mqtt.MQTTConnect
 import io.github.davidepianca98.mqtt.packets.mqtt.MQTTPublish
-import io.github.davidepianca98.mqtt.packets.mqtt.MQTTSubscribe
 import io.github.davidepianca98.mqtt.packets.mqttv5.MQTT5Properties
 import io.github.davidepianca98.toBase64
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.slf4j.LoggerFactory
@@ -63,6 +61,9 @@ class MQTTEventBus(configuration: MQTTConfig, val devices: MutableMap<Uuid, Gene
             is ParameterValue.IntegerValue -> value.value.toString()
             is ParameterValue.BytesValue -> value.value.toBase64()
             is ParameterValue.StringValue -> value.value
+            is ParameterValue.DoubleValue -> value.value.toString()
+            is ParameterValue.IntegerArrayValue -> value.value.joinToString(",", "[", "]")
+            is ParameterValue.DoubleArrayValue -> value.value.joinToString(",", "[", "]")
         }
 
         log.debug("PUBLISH UPDATE: {}, {}", topic, transformedValue)
@@ -76,6 +77,9 @@ class MQTTEventBus(configuration: MQTTConfig, val devices: MutableMap<Uuid, Gene
                 is ParameterValue.IntegerValue -> "integer"
                 is ParameterValue.BytesValue -> "bytes"
                 is ParameterValue.StringValue -> "string"
+                is ParameterValue.DoubleValue -> "double"
+                is ParameterValue.IntegerArrayValue -> "integer_array"
+                is ParameterValue.DoubleArrayValue -> "double_array"
             }
         )
     }
@@ -92,6 +96,9 @@ class MQTTEventBus(configuration: MQTTConfig, val devices: MutableMap<Uuid, Gene
             is ParameterValue.IntegerValue -> value.value.toString()
             is ParameterValue.BytesValue -> value.value.toBase64()
             is ParameterValue.StringValue -> value.value
+            is ParameterValue.DoubleValue -> value.value.toString()
+            is ParameterValue.IntegerArrayValue -> value.value.joinToString(",", "[", "]")
+            is ParameterValue.DoubleArrayValue -> value.value.joinToString(",", "[", "]")
         }
 
         log.debug("PUBLISH RESOLVE: {}, {}", topic, transformedValue)
@@ -106,6 +113,9 @@ class MQTTEventBus(configuration: MQTTConfig, val devices: MutableMap<Uuid, Gene
                 is ParameterValue.IntegerValue -> "integer"
                 is ParameterValue.BytesValue -> "bytes"
                 is ParameterValue.StringValue -> "string"
+                is ParameterValue.DoubleValue -> "double"
+                is ParameterValue.IntegerArrayValue -> "integer_array"
+                is ParameterValue.DoubleArrayValue -> "double_array"
             }
         )
     }

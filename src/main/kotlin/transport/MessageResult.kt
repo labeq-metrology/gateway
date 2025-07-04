@@ -138,10 +138,13 @@ inline fun <T> MessageResult<T>.onFailure(action: (String) -> Unit): MessageResu
  * - `STRING`: Specifies that the result should be returned as a `String`.
  */
 sealed class ReturnType {
-    object SAME_AS_INPUT : ReturnType()
-    object BYTES : ReturnType()
-    object STRING : ReturnType()
-    object INTEGER : ReturnType()
+    object SameAsInput : ReturnType()
+    object Bytes : ReturnType()
+    object String : ReturnType()
+    object Integer : ReturnType()
+    object Double : ReturnType()
+    object IntegerArray : ReturnType()
+    object DoubleArray : ReturnType()
 }
 
 /**
@@ -151,6 +154,7 @@ sealed class ReturnType {
 sealed class ParameterValue {
     data class StringValue(val value: String) : ParameterValue()
     data class IntegerValue(val value: Int) : ParameterValue()
+    data class DoubleValue(val value: Double) : ParameterValue()
     data class BytesValue(val value: ByteArray) : ParameterValue() {
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
@@ -159,6 +163,31 @@ sealed class ParameterValue {
             other as BytesValue
 
             return value.contentEquals(other.value)
+        }
+
+        override fun hashCode(): Int {
+            return value.contentHashCode()
+        }
+    }
+    data class IntegerArrayValue(val value: IntArray) : ParameterValue() {
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (javaClass != other?.javaClass) return false
+            other as IntegerArrayValue
+            return true
+        }
+
+        override fun hashCode(): Int {
+            return value.contentHashCode()
+        }
+    }
+
+    data class DoubleArrayValue(val value: DoubleArray) : ParameterValue() {
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (javaClass != other?.javaClass) return false
+            other as DoubleArrayValue
+            return true
         }
 
         override fun hashCode(): Int {

@@ -19,10 +19,10 @@ class HP3325Device(
         const val PARAMETER_GENERATOR_FUNCTION = "generator.function"
     }
 
-    override val parameters: Map<String, DeviceParameter<*>> = mapOf(
-        PARAMETER_GENERATOR_FREQUENCY to StringParameter("0HZ"),
-        PARAMETER_GENERATOR_AMPLITUDE to StringParameter(".001VO"),
-        PARAMETER_GENERATOR_FUNCTION to IntegerParameter(0)
+    override val parameters: MutableMap<String, ParameterValue> = mutableMapOf(
+        PARAMETER_GENERATOR_FREQUENCY to ParameterValue.StringValue("0HZ"),
+        PARAMETER_GENERATOR_AMPLITUDE to ParameterValue.StringValue(".001VO"),
+        PARAMETER_GENERATOR_FUNCTION to ParameterValue.IntegerValue(0)
     )
 
     override fun writeState(force: Boolean): Boolean {
