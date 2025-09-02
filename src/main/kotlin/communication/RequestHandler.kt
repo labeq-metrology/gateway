@@ -31,9 +31,11 @@ sealed class DeviceRequest(val requestId: Uuid) {
 
 @Serializable
 @OptIn(ExperimentalUuidApi::class)
-sealed class RequestDTO constructor(val requestId: Uuid) {
-    data class ReadRequestDTO(val id: Uuid, val returnType: String) : RequestDTO(id)
-    data class WriteRequestDTO(val id: Uuid, val value: String, val contentType: String) : RequestDTO(id)
+sealed class RequestDTO {
+    @Serializable
+    data class ReadRequestDTO(val requestId: Uuid, val returnType: String) : RequestDTO()
+    @Serializable
+    data class WriteRequestDTO(val requestId: Uuid, val value: String, val contentType: String) : RequestDTO()
 }
 
 @OptIn(ExperimentalUuidApi::class, ExperimentalUnsignedTypes::class)
@@ -104,20 +106,24 @@ class RequestHandler @OptIn(DelicateCoroutinesApi::class) constructor(
             .replace("{uuid}", "(?<uuid>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})")
             .replace("{parameter}", "(?<parameter>[^/]+)")
             .toRegex()
-        println(packet.topicName)
-        println(writeRequestRegex)
+
         if (readRequestRegex matches packet.topicName) {
             val matched = readRequestRegex.matchEntire(packet.topicName) ?: return
-            println(matched.groupValues)
 
             val deviceUuid = Uuid.parse(matched.groupValues[1])
             val parameter = matched.groupValues[2]
-            println(deviceUuid)
-            println(parameter)
             if (!devices.containsKey(deviceUuid)) return
-
+            Json.decodeFromString<RequestDTO.ReadRequestDTO>(
+                String(
+                    packet.payload?.toByteArray() ?: byteArrayOf()
+                )
+            )
             val requestId = try {
-                Json.decodeFromString<RequestDTO>(packet.payload!!.toString()).requestId
+                Json.decodeFromString<RequestDTO.ReadRequestDTO>(
+                    String(
+                        packet.payload?.toByteArray() ?: byteArrayOf()
+                    )
+                ).requestId
             } catch (_: SerializationException) {
                 Uuid.random()
             }
@@ -128,19 +134,20 @@ class RequestHandler @OptIn(DelicateCoroutinesApi::class) constructor(
             )
         } else if (writeRequestRegex matches packet.topicName) {
             val matched = writeRequestRegex.matchEntire(packet.topicName) ?: return
-            println(matched.groupValues)
             val deviceUuid = Uuid.parse(matched.groupValues[1])
             val parameter = matched.groupValues[2]
             if (!devices.containsKey(deviceUuid)) return
 
+            val payloadString = String(packet.payload?.toByteArray() ?: byteArrayOf());
+
             val dto = try {
-                Json.decodeFromString<RequestDTO.WriteRequestDTO>(packet.payload!!.toString())
+                Json.decodeFromString<RequestDTO.WriteRequestDTO>(payloadString)
             } catch (_: Exception) {
                 return
             }
 
             val parameterValueResult = parseWriteRequestDTO(
-                packet.payload!!.toString(),
+                payloadString,
                 dto.contentType
             )
 

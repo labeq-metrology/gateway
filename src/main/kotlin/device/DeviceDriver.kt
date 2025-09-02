@@ -1,9 +1,6 @@
 package com.labeq.device
 
-import com.labeq.transport.DeviceConnection
-import com.labeq.transport.MessageResult
-import com.labeq.transport.ParameterValue
-import com.labeq.transport.ReturnType
+import com.labeq.transport.*
 
 /**
  * Represents an abstract driver for managing communication and operations with a device.

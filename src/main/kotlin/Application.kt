@@ -42,11 +42,9 @@ fun main(args: Array<String>) {
 @OptIn(ExperimentalUuidApi::class)
 fun Application.module() {
     ensureConfigurationFiles()
-    configureHTTP()
-    configureSerialization()
-    configureRouting()
 
     gateway = LabeqGateway(config)
+
     val scope = HM107Device(
         gateway.eventBus, "A", "B", "C", Uuid.random(), HM107Driver(
             SerialConnection(
@@ -61,7 +59,7 @@ fun Application.module() {
     )
 
     val generator = HP3325Device(
-        gateway.eventBus, "F Gen.", "HP", "3325B", Uuid.random(), HP3325Driver(
+        gateway.eventBus, "3325B #1", "Hewlett Packard", "3325B", Uuid.random(), HP3325Driver(
             SerialConnection(
                 SerialConfiguration(
                     port = "COM3",
@@ -75,7 +73,26 @@ fun Application.module() {
         )
     )
 
-    gateway.registerDevices(scope, generator)
+    val generator2 = HP3325Device(
+        gateway.eventBus, "3325B #2", "Hewlett Packard", "3325B", Uuid.random(), HP3325Driver(
+            SerialConnection(
+                SerialConfiguration(
+                    port = "COM3",
+                    baudRate = 300,
+                    dataBits = 7,
+                    stopBits = SerialStopBits.ONE,
+                    flowControl = SerialFlowControl.SOFTWARE,
+                    parity = SerialParity.EVEN
+                )
+            )
+        )
+    )
+
+    gateway.registerDevices(scope, generator, generator2)
+
+    configureHTTP()
+    configureSerialization()
+    configureRouting(gateway)
 
     runBlocking {
         gateway.eventBus.requestHandler.add(

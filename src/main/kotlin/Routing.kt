@@ -1,20 +1,29 @@
 package com.labeq
 
-import io.ktor.http.*
-import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.autohead.*
-import io.ktor.server.plugins.contentnegotiation.*
-import io.ktor.server.plugins.cors.routing.*
-import io.ktor.server.plugins.defaultheaders.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlin.uuid.ExperimentalUuidApi
 
-fun Application.configureRouting() {
+@OptIn(ExperimentalUuidApi::class)
+fun Application.configureRouting(gateway: LabeqGateway) {
     install(AutoHeadResponse)
     routing {
-        get("/") {
-            call.respondText("Hello World!")
+        get("/devices") {
+            val deviceList = gateway.devices.values.map {
+                buildJsonObject {
+                    put("uuid", it.uuid.toString())
+                    put("name", it.name)
+                    put("model", it.model)
+                    put("manufacturer", it.manufacturer)
+                    put("driver", it.driver.javaClass.canonicalName)
+                }
+            }
+            call.respondText { Json.encodeToString(deviceList) }
         }
     }
 }
