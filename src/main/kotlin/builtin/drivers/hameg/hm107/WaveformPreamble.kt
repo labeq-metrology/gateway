@@ -5,29 +5,23 @@ data class WaveformPreamble(
     val xResolution: Int = 200,
     val yResolution: Int = 25,
     val y1Position: Int,
-    val y2Position: Int,
+    val y2Position: Int
 ) {
     companion object {
         fun fromBytes(bytes: ByteArray): WaveformPreamble {
-            if (bytes.size != 10) throw IllegalArgumentException("Bytes length must be 10")
+            require(bytes.size == 10) { "Bytes length must be 10 for WFMPRE" }
+            fun word(off: Int) = ((bytes[off].toInt() and 0xFF) shl 8) or (bytes[off + 1].toInt() and 0xFF)
+            val memoryAddress = word(0)
+            val xRes = word(2)
+            val yRes = word(4)
+            val y1 = word(6)
+            val y2 = word(8)
+            return WaveformPreamble(memoryAddress, xRes, yRes, y1, y2)
+        }
 
-            fun getWord(offset: Int): Int {
-                return ((bytes[offset].toInt() and 0xFF) shl 8) or (bytes[offset + 1].toInt() and 0xFF)
-            }
-
-            val memoryAddress = getWord(0)     // WORD 1
-            val xResolution = getWord(2)       // WORD 2 (200)
-            val yResolution = getWord(4)       // WORD 3 (25)
-            val y1Position = getWord(6)        // WORD 4
-            val y2Position = getWord(8)        // WORD 5
-
-            return WaveformPreamble(
-                memoryAddress,
-                xResolution,
-                yResolution,
-                y1Position,
-                y2Position
-            )
+        fun toBytes(p: WaveformPreamble): ByteArray {
+            fun putWord(v: Int) = byteArrayOf(((v shr 8) and 0xFF).toByte(), (v and 0xFF).toByte())
+            return putWord(p.memoryAddress) + putWord(p.xResolution) + putWord(p.yResolution) + putWord(p.y1Position) + putWord(p.y2Position)
         }
     }
 }

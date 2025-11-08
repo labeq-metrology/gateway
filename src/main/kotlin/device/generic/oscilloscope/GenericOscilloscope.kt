@@ -84,20 +84,20 @@ open class GenericOscilloscope @OptIn(ExperimentalUuidApi::class) constructor(
     }
 
     @ParameterSetter("scope.autoset")
-    suspend fun autoset(value: ParameterValue): MessageResult<ParameterValue> {
+    open suspend fun autoset(value: ParameterValue): MessageResult<ParameterValue> {
         val result = driver.writeParameter("scope.autoset", ParameterValue.IntegerValue(1))
         return result
     }
 
     @ParameterGetter("scope.acquisition.avg")
-    suspend fun getAverageCount(): MessageResult<ParameterValue> {
+    open suspend fun getAverageCount(): MessageResult<ParameterValue> {
         val result = driver.queryParameter("scope.acquisition.avg")
         println(result)
         return result
     }
 
     @ParameterSetter("scope.acquisition.avg")
-    suspend fun setAverageCount(value: ParameterValue): MessageResult<ParameterValue> {
+    open suspend fun setAverageCount(value: ParameterValue): MessageResult<ParameterValue> {
         val result = driver.writeParameter("scope.acquisition.avg", value)
         println(result)
         return result

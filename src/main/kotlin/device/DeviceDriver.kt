@@ -9,7 +9,7 @@ import com.labeq.transport.*
  *
  * @property connection The underlying connection used to communicate with the device.
  */
-abstract class DeviceDriver(val connection: DeviceConnection) {
+abstract class DeviceDriver(open val connection: DeviceConnection) {
 
     /**
      * Queries a specific parameter on the device and returns its value in the desired format.
