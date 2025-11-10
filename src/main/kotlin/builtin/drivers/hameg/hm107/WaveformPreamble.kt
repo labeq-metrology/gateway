@@ -10,7 +10,7 @@ data class WaveformPreamble(
     companion object {
         fun fromBytes(bytes: ByteArray): WaveformPreamble {
             require(bytes.size == 10) { "Bytes length must be 10 for WFMPRE" }
-            fun word(off: Int) = ((bytes[off].toInt() and 0xFF) shl 8) or (bytes[off + 1].toInt() and 0xFF)
+            fun word(off: Int) = ((bytes[off + 1].toInt() and 0xFF) shl 8) or (bytes[off].toInt() and 0xFF)
             val memoryAddress = word(0)
             val xRes = word(2)
             val yRes = word(4)

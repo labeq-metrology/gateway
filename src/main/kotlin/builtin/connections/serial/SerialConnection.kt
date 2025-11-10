@@ -177,7 +177,7 @@ class SerialConnection(connectionConfiguration: ConnectionConfiguration) : Devic
                 }
             }
         }
-
+        port.flushIOBuffers() // Just in case we leave something behind
         buffer.copyOf(totalRead)
     }
 

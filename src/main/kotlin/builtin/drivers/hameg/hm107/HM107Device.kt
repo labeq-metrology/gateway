@@ -7,7 +7,6 @@ import com.labeq.device.generic.ParameterSetter
 import com.labeq.device.generic.oscilloscope.GenericOscilloscope
 import com.labeq.transport.MessageResult
 import com.labeq.transport.ParameterValue
-import com.labeq.transport.getOrNull
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -17,20 +16,37 @@ class HM107Device(
 ) : GenericOscilloscope(
     eventBus, name, manufacturer, model, uuid, driver
 ) {
+
+    private val timebaseDecoder by lazy { TimebaseDecoder(this) }
+    private val waveformDecoder by lazy { WaveformDecoder(this) }
+
     companion object {
-        // Scope parameters (existing + added)
+        // Scope parameters
         const val PARAMETER_AVG_NUMBER_OF_ACQUISITIONS = "scope.acquisition.avg"
         const val PARAMETER_AVG_NUMBER_OF_ACQUISITIONS_SWITCH = "scope.acquisitions.switch"
         const val PARAMETER_WAVEFORM_PREAMBLE = "scope.acquisition.preamble"
 
+        // Timebase
+        const val PARAMETER_TIMEBASE_A = "scope.timebase.a"
+        const val PARAMETER_TIMEBASE_B = "scope.timebase.b"
+        const val PARAMETER_TIMEBASE_A_SECONDS = "scope.timebase.a.seconds"
+        const val PARAMETER_TIMEBASE_B_SECONDS = "scope.timebase.b.seconds"
+
         // Channels
         const val PARAMETER_CHANNEL_1_SETTINGS = "scope.channel.1.settings"
-        const val PARAMETER_CHANNEL_1_WAVEFORM = "scope.channel.1.waveform"
-        const val PARAMETER_CHANNEL_1_WAVEFORM_VOLTAGE = "scope.channel.1.waveform.voltage"
-
         const val PARAMETER_CHANNEL_2_SETTINGS = "scope.channel.2.settings"
+        const val PARAMETER_CHANNEL_1_WAVEFORM = "scope.channel.1.waveform"
         const val PARAMETER_CHANNEL_2_WAVEFORM = "scope.channel.2.waveform"
+        const val PARAMETER_CHANNEL_1_WAVEFORM_VOLTAGE = "scope.channel.1.waveform.voltage"
         const val PARAMETER_CHANNEL_2_WAVEFORM_VOLTAGE = "scope.channel.2.waveform.voltage"
+        const val PARAMETER_CHANNEL_1_COUPLING = "scope.channel.1.coupling"
+        const val PARAMETER_CHANNEL_2_COUPLING = "scope.channel.2.coupling"
+        const val PARAMETER_CHANNEL_1_INVERT = "scope.channel.1.invert"
+        const val PARAMETER_CHANNEL_2_INVERT = "scope.channel.2.invert"
+        const val PARAMETER_CHANNEL_1_ON = "scope.channel.1.on"
+        const val PARAMETER_CHANNEL_2_ON = "scope.channel.2.on"
+        const val PARAMETER_CHANNEL_1_VOLTPERDIV = "scope.channel.1.vdiv"
+        const val PARAMETER_CHANNEL_2_VOLTPERDIV = "scope.channel.2.vdiv"
 
         // Additional channel/controls
         const val PARAMETER_CHANNEL_1_VAR = "scope.channel.1.var"
@@ -93,6 +109,10 @@ class HM107Device(
                 PARAMETER_AVG_NUMBER_OF_ACQUISITIONS to ParameterValue.IntegerValue(0),
                 PARAMETER_AVG_NUMBER_OF_ACQUISITIONS_SWITCH to ParameterValue.IntegerValue(0),
                 PARAMETER_WAVEFORM_PREAMBLE to ParameterValue.BytesValue(byteArrayOf()),
+                PARAMETER_TIMEBASE_A to ParameterValue.BytesValue(byteArrayOf()),
+                PARAMETER_TIMEBASE_B to ParameterValue.BytesValue(byteArrayOf()),
+                PARAMETER_TIMEBASE_A_SECONDS to ParameterValue.DoubleValue(0.0),
+                PARAMETER_TIMEBASE_B_SECONDS to ParameterValue.DoubleValue(0.0),
                 PARAMETER_CHANNEL_1_SETTINGS to ParameterValue.BytesValue(byteArrayOf()),
                 PARAMETER_CHANNEL_2_SETTINGS to ParameterValue.BytesValue(byteArrayOf()),
                 PARAMETER_CHANNEL_1_WAVEFORM to ParameterValue.BytesValue(byteArrayOf()),
@@ -165,6 +185,34 @@ class HM107Device(
     suspend fun setAverageNumberOfAcquisitionsSwitch(value: ParameterValue): MessageResult<ParameterValue> =
         driver.writeParameter(PARAMETER_AVG_NUMBER_OF_ACQUISITIONS_SWITCH, value)
 
+    // ─────────────────────────────── TIMEBASE ───────────────────────────────
+
+    @ParameterGetter(PARAMETER_TIMEBASE_A_SECONDS)
+    suspend fun getTimebaseASeconds(): MessageResult<ParameterValue> {
+        val value = timebaseDecoder.getTimebaseSecondsPerDiv("A") ?: return MessageResult.Error("No data")
+        return MessageResult.Result(ParameterValue.DoubleValue(value))
+    }
+
+    @ParameterSetter(PARAMETER_TIMEBASE_A_SECONDS)
+    suspend fun setTimebaseASeconds(value: ParameterValue): MessageResult<ParameterValue> {
+        if (value !is ParameterValue.DoubleValue) return MessageResult.Error("Invalid value")
+        val ok = timebaseDecoder.setTimebaseSecondsPerDiv("A", value.value)
+        return if (ok) MessageResult.Result(value) else MessageResult.Error("Failed to set A")
+    }
+
+    @ParameterGetter(PARAMETER_TIMEBASE_B_SECONDS)
+    suspend fun getTimebaseBSeconds(): MessageResult<ParameterValue> {
+        val value = timebaseDecoder.getTimebaseSecondsPerDiv("B") ?: return MessageResult.Error("No data")
+        return MessageResult.Result(ParameterValue.DoubleValue(value))
+    }
+
+    @ParameterSetter(PARAMETER_TIMEBASE_B_SECONDS)
+    suspend fun setTimebaseBSeconds(value: ParameterValue): MessageResult<ParameterValue> {
+        if (value !is ParameterValue.DoubleValue) return MessageResult.Error("Invalid value")
+        val ok = timebaseDecoder.setTimebaseSecondsPerDiv("B", value.value)
+        return if (ok) MessageResult.Result(value) else MessageResult.Error("Failed to set B")
+    }
+
     // Waveform / Channel settings
     @ParameterGetter(PARAMETER_WAVEFORM_PREAMBLE)
     suspend fun queryWaveformPreamble(): MessageResult<ParameterValue> =
@@ -186,6 +234,14 @@ class HM107Device(
     suspend fun queryChannel2Waveform(): MessageResult<ParameterValue> =
         driver.queryParameter(PARAMETER_CHANNEL_2_WAVEFORM)
 
+    @ParameterGetter(PARAMETER_CHANNEL_1_WAVEFORM_VOLTAGE)
+    suspend fun queryChannel1WaveformVoltage(): MessageResult<ParameterValue.DoubleArrayValue> =
+        MessageResult.Result(ParameterValue.DoubleArrayValue(waveformDecoder.decodeVoltages(1).toDoubleArray()))
+
+    @ParameterGetter(PARAMETER_CHANNEL_2_WAVEFORM_VOLTAGE)
+    suspend fun queryChannel2WaveformVoltage(): MessageResult<ParameterValue> =
+        MessageResult.Result(ParameterValue.DoubleArrayValue(waveformDecoder.decodeVoltages(2).toDoubleArray()))
+
     @ParameterGetter(PARAMETER_CHANNEL_1_VAR)
     suspend fun queryChannel1Var(): MessageResult<ParameterValue> =
         driver.queryParameter(PARAMETER_CHANNEL_1_VAR)
@@ -201,6 +257,70 @@ class HM107Device(
     @ParameterSetter(PARAMETER_CHANNEL_2_VAR)
     suspend fun setChannel2Var(value: ParameterValue): MessageResult<ParameterValue> =
         driver.writeParameter(PARAMETER_CHANNEL_2_VAR, value)
+
+    @ParameterGetter(PARAMETER_CHANNEL_1_COUPLING)
+    suspend fun queryChannel1Coupling(): MessageResult<ParameterValue> =
+        driver.queryParameter(PARAMETER_CHANNEL_1_COUPLING)
+
+    @ParameterSetter(PARAMETER_CHANNEL_1_COUPLING)
+    suspend fun setChannel1Coupling(value: ParameterValue): MessageResult<ParameterValue> =
+        driver.writeParameter(PARAMETER_CHANNEL_1_COUPLING, value)
+
+    @ParameterGetter(PARAMETER_CHANNEL_2_COUPLING)
+    suspend fun queryChannel2Coupling(): MessageResult<ParameterValue> =
+        driver.queryParameter(PARAMETER_CHANNEL_2_COUPLING)
+
+    @ParameterSetter(PARAMETER_CHANNEL_2_COUPLING)
+    suspend fun setChannel2Coupling(value: ParameterValue): MessageResult<ParameterValue> =
+        driver.writeParameter(PARAMETER_CHANNEL_2_COUPLING, value)
+
+    @ParameterGetter(PARAMETER_CHANNEL_1_INVERT)
+    suspend fun queryChannel1Invert(): MessageResult<ParameterValue> =
+        driver.queryParameter(PARAMETER_CHANNEL_1_INVERT)
+
+    @ParameterSetter(PARAMETER_CHANNEL_1_INVERT)
+    suspend fun setChannel1Invert(value: ParameterValue): MessageResult<ParameterValue> =
+        driver.writeParameter(PARAMETER_CHANNEL_1_INVERT, value)
+
+    @ParameterGetter(PARAMETER_CHANNEL_2_INVERT)
+    suspend fun queryChannel2Invert(): MessageResult<ParameterValue> =
+        driver.queryParameter(PARAMETER_CHANNEL_2_INVERT)
+
+    @ParameterSetter(PARAMETER_CHANNEL_2_INVERT)
+    suspend fun setChannel2Invert(value: ParameterValue): MessageResult<ParameterValue> =
+        driver.writeParameter(PARAMETER_CHANNEL_2_INVERT, value)
+
+    @ParameterGetter(PARAMETER_CHANNEL_1_ON)
+    suspend fun queryChannel1On(): MessageResult<ParameterValue> =
+        driver.queryParameter(PARAMETER_CHANNEL_1_ON)
+
+    @ParameterSetter(PARAMETER_CHANNEL_1_ON)
+    suspend fun setChannel1On(value: ParameterValue): MessageResult<ParameterValue> =
+        driver.writeParameter(PARAMETER_CHANNEL_1_ON, value)
+
+    @ParameterGetter(PARAMETER_CHANNEL_2_ON)
+    suspend fun queryChannel2On(): MessageResult<ParameterValue> =
+        driver.queryParameter(PARAMETER_CHANNEL_2_ON)
+
+    @ParameterSetter(PARAMETER_CHANNEL_2_ON)
+    suspend fun setChannel2On(value: ParameterValue): MessageResult<ParameterValue> =
+        driver.writeParameter(PARAMETER_CHANNEL_2_ON, value)
+
+    @ParameterGetter(PARAMETER_CHANNEL_1_VOLTPERDIV)
+    suspend fun queryChannel1VoltPerDiv(): MessageResult<ParameterValue> =
+        driver.queryParameter(PARAMETER_CHANNEL_1_VOLTPERDIV)
+
+    @ParameterSetter(PARAMETER_CHANNEL_1_VOLTPERDIV)
+    suspend fun setChannel1VoltPerDiv(value: ParameterValue): MessageResult<ParameterValue> =
+        driver.writeParameter(PARAMETER_CHANNEL_1_VOLTPERDIV, value)
+
+    @ParameterGetter(PARAMETER_CHANNEL_2_VOLTPERDIV)
+    suspend fun queryChannel2VoltPerDiv(): MessageResult<ParameterValue> =
+        driver.queryParameter(PARAMETER_CHANNEL_2_VOLTPERDIV)
+
+    @ParameterSetter(PARAMETER_CHANNEL_2_VOLTPERDIV)
+    suspend fun setChannel2VoltPerDiv(value: ParameterValue): MessageResult<ParameterValue> =
+        driver.writeParameter(PARAMETER_CHANNEL_2_VOLTPERDIV, value)
 
     // Positions / intensity / misc
     @ParameterGetter(PARAMETER_DELAY_POSITION)

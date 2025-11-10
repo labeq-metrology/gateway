@@ -7,6 +7,7 @@ import kotlinx.coroutines.runBlocking
 import kotlin.math.pow
 
 class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(connection) {
+
     private companion object {
         const val CRLF = "\r\n"
         const val REMOTE_ENABLE = " \r"
@@ -97,6 +98,8 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
 
     override suspend fun queryParameter(parameter: String, returnType: ReturnType): MessageResult<ParameterValue> {
         return when (parameter) {
+            HM107Device.PARAMETER_TIMEBASE_A -> queryTimebase("A")
+            HM107Device.PARAMETER_TIMEBASE_B -> queryTimebase("B")
             HM107Device.PARAMETER_AVG_NUMBER_OF_ACQUISITIONS -> queryAvgAcquisitions()
             HM107Device.PARAMETER_AVG_NUMBER_OF_ACQUISITIONS_SWITCH -> queryAvgAcquisitionsSwitch()
             HM107Device.PARAMETER_CHANNEL_1_SETTINGS -> queryChannelSettings(1)
@@ -148,6 +151,14 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
             HM107Device.PARAMETER_PSY2POS -> queryPsY2Pos()
             HM107Device.PARAMETER_PSTB -> queryPstb()
             HM107Device.PARAMETER_MANUAL_OPERATION -> queryManualOperation()
+            HM107Device.PARAMETER_CHANNEL_1_COUPLING -> queryChannelCoupling(1)
+            HM107Device.PARAMETER_CHANNEL_2_COUPLING -> queryChannelCoupling(2)
+            HM107Device.PARAMETER_CHANNEL_1_INVERT -> queryChannelInvert(1)
+            HM107Device.PARAMETER_CHANNEL_2_INVERT -> queryChannelInvert(2)
+            HM107Device.PARAMETER_CHANNEL_1_ON -> queryChannelOn(1)
+            HM107Device.PARAMETER_CHANNEL_2_ON -> queryChannelOn(2)
+            HM107Device.PARAMETER_CHANNEL_1_VOLTPERDIV -> queryChannelVoltPerDiv(1)
+            HM107Device.PARAMETER_CHANNEL_2_VOLTPERDIV -> queryChannelVoltPerDiv(2)
             else -> MessageResult.Error("Invalid parameter: $parameter")
         }
     }
@@ -156,6 +167,8 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
         parameter: String, value: ParameterValue, returnType: ReturnType
     ): MessageResult<ParameterValue> {
         return when (parameter) {
+            HM107Device.PARAMETER_TIMEBASE_A -> setTimebase("A", value as ParameterValue.BytesValue)
+            HM107Device.PARAMETER_TIMEBASE_B -> setTimebase("B", value as ParameterValue.BytesValue)
             HM107Device.PARAMETER_AUTOSET -> autoset()
             HM107Device.PARAMETER_RESET -> resetScope()
             HM107Device.PARAMETER_AVG_NUMBER_OF_ACQUISITIONS -> setAvgAcquisitions(value as ParameterValue.IntegerValue)
@@ -203,6 +216,14 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
             HM107Device.PARAMETER_PSY1POS -> setPsY1Pos(value as ParameterValue.IntegerValue)
             HM107Device.PARAMETER_PSY2POS -> setPsY2Pos(value as ParameterValue.IntegerValue)
             HM107Device.PARAMETER_PSTB -> setPstb(value as ParameterValue.IntegerValue)
+            HM107Device.PARAMETER_CHANNEL_1_COUPLING -> setChannelCoupling(1, value as ParameterValue.IntegerValue)
+            HM107Device.PARAMETER_CHANNEL_2_COUPLING -> setChannelCoupling(2, value as ParameterValue.IntegerValue)
+            HM107Device.PARAMETER_CHANNEL_1_INVERT -> setChannelInvert(1, value as ParameterValue.IntegerValue)
+            HM107Device.PARAMETER_CHANNEL_2_INVERT -> setChannelInvert(2, value as ParameterValue.IntegerValue)
+            HM107Device.PARAMETER_CHANNEL_1_ON -> setChannelOn(1, value as ParameterValue.IntegerValue)
+            HM107Device.PARAMETER_CHANNEL_2_ON -> setChannelOn(2, value as ParameterValue.IntegerValue)
+            HM107Device.PARAMETER_CHANNEL_1_VOLTPERDIV -> setChannelVoltPerDiv(1, value as ParameterValue.DoubleValue)
+            HM107Device.PARAMETER_CHANNEL_2_VOLTPERDIV -> setChannelVoltPerDiv(2, value as ParameterValue.DoubleValue)
             else -> MessageResult.Error("Invalid parameter: $parameter")
         }
     }
@@ -308,7 +329,7 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
     private suspend fun setAvgAcquisitions(value: ParameterValue.IntegerValue): MessageResult<ParameterValue> {
         if (!connection.open()) return MessageResult.Error("Connection closed!")
         if (value.value !in 1..9) return MessageResult.Error("Invalid value: AVRNM must be 1..9")
-        connection.send("$AVG_ACQUISITIONS_SET")
+        connection.send(AVG_ACQUISITIONS_SET)
         connection.query(byteArrayOf(value.value.toByte()), -1).onSuccessAsync { return queryAvgAcquisitions() }
         return MessageResult.Error("Invalid response")
     }
@@ -330,6 +351,24 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
         connection.query("$AVG_ACQ_SWITCH_SET${value.value}$CRLF", -1)
             .onSuccessAsync { return queryAvgAcquisitionsSwitch() }
         return MessageResult.Error("Invalid response")
+    }
+
+    // ─────────────────────────────── TIMEBASE ───────────────────────────────
+
+    private suspend fun queryTimebase(id: String): MessageResult<ParameterValue.BytesValue> {
+        if (!connection.open()) return MessageResult.Error("Connection closed!")
+        val cmd = "TB${id.uppercase()}?"
+        val result = connection.query(cmd, 5, ReturnType.Bytes).getOrNull()
+        return if (result is ParameterValue.BytesValue && result.value.isNotEmpty())
+            MessageResult.Result(ParameterValue.BytesValue(byteArrayOf(result.value.last())))
+        else MessageResult.Error("Invalid response")
+    }
+
+    private suspend fun setTimebase(id: String, value: ParameterValue.BytesValue): MessageResult<ParameterValue> {
+        if (!connection.open()) return MessageResult.Error("Connection closed!")
+        val cmd = "TB${id.uppercase()}=${value.value.decodeToString()}$CRLF"
+        connection.query(cmd, -1)
+        return queryTimebase(id)
     }
 
     // ============================================================
@@ -387,6 +426,96 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
         return MessageResult.Error("Invalid response")
     }
 
+    private suspend fun queryChannelCoupling(channel: Int): MessageResult<ParameterValue.IntegerValue> {
+        val settingsRv = queryChannelSettings(channel).getOrNull() ?: return MessageResult.Error("No response")
+        if (settingsRv !is ParameterValue.BytesValue || settingsRv.value.isEmpty())
+            return MessageResult.Error("Invalid data")
+        val settings = ChannelSettings.fromByte(settingsRv.value.first())
+        val mode = when {
+            settings.gnd -> 2
+            settings.ac -> 1
+            else -> 0
+        }
+        return MessageResult.Result(ParameterValue.IntegerValue(mode))
+    }
+
+    private suspend fun setChannelCoupling(
+        channel: Int,
+        value: ParameterValue.IntegerValue
+    ): MessageResult<ParameterValue> {
+        val settingsRv = queryChannelSettings(channel).getOrNull() ?: return MessageResult.Error("No response")
+        if (settingsRv.value.isEmpty())
+            return MessageResult.Error("Invalid data")
+        val current = ChannelSettings.fromByte(settingsRv.value.first())
+        val updated = when (value.value) {
+            2 -> current.copy(gnd = true, ac = false)
+            1 -> current.copy(gnd = false, ac = true)
+            else -> current.copy(gnd = false, ac = false)
+        }
+        return setChannelSettings(channel, ParameterValue.BytesValue(byteArrayOf(ChannelSettings.toByte(updated))))
+    }
+
+    private suspend fun queryChannelInvert(channel: Int): MessageResult<ParameterValue.IntegerValue> {
+        val settingsRv = queryChannelSettings(channel).getOrNull() ?: return MessageResult.Error("No response")
+        if (settingsRv.value.isEmpty())
+            return MessageResult.Error("Invalid data")
+        val settings = ChannelSettings.fromByte(settingsRv.value.first())
+        return MessageResult.Result(ParameterValue.IntegerValue(if (settings.inv) 1 else 0))
+    }
+
+    private suspend fun setChannelInvert(
+        channel: Int,
+        value: ParameterValue.IntegerValue
+    ): MessageResult<ParameterValue> {
+        val settingsRv = queryChannelSettings(channel).getOrNull() ?: return MessageResult.Error("No response")
+        if (settingsRv.value.isEmpty())
+            return MessageResult.Error("Invalid data")
+        val current = ChannelSettings.fromByte(settingsRv.value.first())
+        val updated = current.copy(inv = value.value != 0)
+        return setChannelSettings(channel, ParameterValue.BytesValue(byteArrayOf(ChannelSettings.toByte(updated))))
+    }
+
+    private suspend fun queryChannelOn(channel: Int): MessageResult<ParameterValue.IntegerValue> {
+        val settingsRv = queryChannelSettings(channel).getOrNull() ?: return MessageResult.Error("No response")
+        if (settingsRv !is ParameterValue.BytesValue || settingsRv.value.isEmpty())
+            return MessageResult.Error("Invalid data")
+        val settings = ChannelSettings.fromByte(settingsRv.value.first())
+        return MessageResult.Result(ParameterValue.IntegerValue(if (settings.on) 1 else 0))
+    }
+
+    private suspend fun setChannelOn(channel: Int, value: ParameterValue.IntegerValue): MessageResult<ParameterValue> {
+        val settingsRv = queryChannelSettings(channel).getOrNull() ?: return MessageResult.Error("No response")
+        if (settingsRv !is ParameterValue.BytesValue || settingsRv.value.isEmpty())
+            return MessageResult.Error("Invalid data")
+        val current = ChannelSettings.fromByte(settingsRv.value.first())
+        val updated = current.copy(on = value.value != 0)
+        return setChannelSettings(channel, ParameterValue.BytesValue(byteArrayOf(ChannelSettings.toByte(updated))))
+    }
+
+    private suspend fun queryChannelVoltPerDiv(channel: Int): MessageResult<ParameterValue.DoubleValue> {
+        val settingsRv = queryChannelSettings(channel).getOrNull() ?: return MessageResult.Error("No response")
+        if (settingsRv !is ParameterValue.BytesValue || settingsRv.value.isEmpty())
+            return MessageResult.Error("Invalid data")
+        val settings = ChannelSettings.fromByte(settingsRv.value.first())
+        return MessageResult.Result(ParameterValue.DoubleValue(settings.voltPerDivMapped))
+    }
+
+    private suspend fun setChannelVoltPerDiv(
+        channel: Int,
+        value: ParameterValue.DoubleValue
+    ): MessageResult<ParameterValue> {
+        val settingsRv = queryChannelSettings(channel).getOrNull() ?: return MessageResult.Error("No response")
+        if (settingsRv.value.isEmpty())
+            return MessageResult.Error("Invalid data")
+        val current = ChannelSettings.fromByte(settingsRv.value.first())
+        val code = ChannelSettings.codeFromVolt(value.value)
+        val updated = current.copy(
+            voltPerDivCode = code,
+            voltPerDivMapped = ChannelSettings.fromByte(ChannelSettings.toByte(current.copy(voltPerDivCode = code))).voltPerDivMapped
+        )
+        return setChannelSettings(channel, ParameterValue.BytesValue(byteArrayOf(ChannelSettings.toByte(updated))))
+    }
+
     // ============================================================
     // Waveform Acquisition
     // ============================================================
@@ -410,6 +539,7 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
         connection.send(byteArrayOf(0, 0, 0, 8))
         connection.query(CRLF, 2048 + 11, ReturnType.Bytes).onSuccessAsync {
             if (it is ParameterValue.BytesValue) {
+                // Hameg's SP107E skips 13 bytes, no idea why, possibly firmware compatibility issue
                 val payload = if (it.value.size > 11) it.value.drop(11).toByteArray() else byteArrayOf()
                 return MessageResult.Result(ParameterValue.BytesValue(payload))
             }
@@ -560,7 +690,8 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
 
     private suspend fun setIntro(value: ParameterValue.IntegerValue): MessageResult<ParameterValue> {
         if (!connection.open()) return MessageResult.Error("Connection closed!")
-        connection.query("$INTRO=${value.value}$CRLF", -1).onSuccessAsync { return queryIntro() }
+        connection.send("$INTRO=")
+        connection.query(byteArrayOf(value.value.toByte()), -1).onSuccessAsync { return queryIntro() }
         return MessageResult.Error("Invalid response")
     }
 
@@ -577,8 +708,8 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
 
     private suspend fun setIntensity(which: String, value: ParameterValue.IntegerValue): MessageResult<ParameterValue> {
         if (!connection.open()) return MessageResult.Error("Connection closed!")
-        val cmd = "INT${which.uppercase()}=${value.value}$CRLF"
-        connection.query(cmd, -1).onSuccessAsync { return queryIntensity(which) }
+        connection.send("INT${which.uppercase()}=")
+        connection.query(byteArrayOf(value.value.toByte()), -1).onSuccessAsync { return queryIntensity(which) }
         return MessageResult.Error("Invalid response")
     }
 

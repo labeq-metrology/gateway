@@ -22,9 +22,11 @@ class WaveformDecoder(private val device: HM107Device) {
         val yRes = preamble.yResolution.toDouble()
         val vPerDiv = chSettings.voltPerDivMapped
 
+        println(waveformRv)
+
         return waveformRv.value.map { b ->
             val raw = b.toInt() and 0xFF
-            (raw - 128 - yPos) / yRes * vPerDiv
+            ((raw - 128 - yPos) / yRes) * vPerDiv
         }
     }
 
