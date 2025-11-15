@@ -85,6 +85,13 @@ class MQTTEventBus(configuration: MQTTConfig, val devices: MutableMap<Uuid, Gene
     }
 
     fun publishParameterResolve(requestId: Uuid, device: GenericDevice, parameter: String, value: ParameterValue) {
+        if (parameter == "*") {
+            device.parameters.keys.forEach {
+                if (device.parameters.containsKey(it)) {
+                    publishParameterUpdate(device, it, device.parameters[it]!!)
+                }
+            }
+        }
         val topic = DEVICE_PARAMETER_REQUEST_RESOLVE.expandPlaceholders(
             mapOf(
                 "uuid" to device.uuid.toString(),

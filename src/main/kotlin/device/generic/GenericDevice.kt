@@ -128,13 +128,13 @@ abstract class GenericDevice @OptIn(ExperimentalUuidApi::class) constructor(
      * @param force the behavior varies per device, in general, allows the user to write invalid settings to the device
      * @return whether the operation succeeded or not
      */
-    abstract fun writeState(force: Boolean): Boolean
+    abstract suspend fun writeState(force: Boolean): Boolean
 
     /**
      * Read the state of the device and update stored parameters accordingly
      * @return whether the operation succeeded or not
      */
-    abstract fun readState(): Boolean
+    abstract suspend fun readState(): Boolean
 
     /**
      * Establishes a connection to the device. The exact implementation of the connection logic

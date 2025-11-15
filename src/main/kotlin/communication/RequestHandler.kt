@@ -34,6 +34,7 @@ sealed class DeviceRequest(val requestId: Uuid) {
 sealed class RequestDTO {
     @Serializable
     data class ReadRequestDTO(val requestId: Uuid, val returnType: String) : RequestDTO()
+
     @Serializable
     data class WriteRequestDTO(val requestId: Uuid, val value: String, val contentType: String) : RequestDTO()
 }
@@ -51,10 +52,13 @@ class RequestHandler @OptIn(DelicateCoroutinesApi::class) constructor(
         val queue = deviceQueues[device.uuid]!!
         scope.launch {
             while (true) {
-                val request = queue.take()
-                when (request) {
+                when (val request = queue.take()) {
                     is DeviceRequest.ParameterReadRequest -> {
-                        val readResult = device.readParameter(request.requestedParameter, request.returnType)
+                        val readResult = if (request.requestedParameter == "*") {
+                            if (device.readState()) MessageResult.Result(ParameterValue.StringValue("OK")) else MessageResult.Error("Error while reading device state")
+                        } else {
+                            device.readParameter(request.requestedParameter, request.returnType)
+                        }
                         readResult
                             .onFailure {
                                 eventBus.publishResolveError(
@@ -65,6 +69,7 @@ class RequestHandler @OptIn(DelicateCoroutinesApi::class) constructor(
                                 )
                             }
                             .onSuccess {
+                                device.parameters[request.requestedParameter] = it
                                 eventBus.publishParameterResolve(
                                     request.requestId,
                                     device,

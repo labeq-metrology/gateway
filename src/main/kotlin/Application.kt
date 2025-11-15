@@ -4,9 +4,12 @@ import com.charleskorn.kaml.Yaml
 import com.labeq.builtin.connections.serial.SerialConfiguration
 import com.labeq.builtin.connections.serial.SerialConnection
 import com.labeq.builtin.connections.serial.SerialFlowControl
+import com.labeq.builtin.connections.serial.SerialParity
 import com.labeq.builtin.connections.serial.SerialStopBits
 import com.labeq.builtin.drivers.hameg.hm107.HM107Device
 import com.labeq.builtin.drivers.hameg.hm107.HM107Driver
+import com.labeq.builtin.drivers.hp.hp3325.HP3325Device
+import com.labeq.builtin.drivers.hp.hp3325.HP3325Driver
 import com.labeq.communication.DeviceRequest
 import com.labeq.config.*
 import com.labeq.config.ServerConfig
@@ -59,20 +62,20 @@ fun Application.module() {
         )
     )
 
-//    val generator = HP3325Device(
-//        gateway.eventBus, "3325B #1", "Hewlett Packard", "3325B", Uuid.random(), HP3325Driver(
-//            SerialConnection(
-//                SerialConfiguration(
-//                    port = "COM3",
-//                    baudRate = 300,
-//                    dataBits = 7,
-//                    stopBits = SerialStopBits.ONE,
-//                    flowControl = SerialFlowControl.SOFTWARE,
-//                    parity = SerialParity.EVEN
-//                )
-//            )
-//        )
-//    )
+    val generator = HP3325Device(
+        gateway.eventBus, "3325B #1", "Hewlett Packard", "3325B", Uuid.random(), HP3325Driver(
+            SerialConnection(
+                SerialConfiguration(
+                    port = "COM3",
+                    baudRate = 300,
+                    dataBits = 7,
+                    stopBits = SerialStopBits.ONE,
+                    flowControl = SerialFlowControl.SOFTWARE,
+                    parity = SerialParity.EVEN
+                )
+            )
+        )
+    )
 //
 //    val generator2 = HP3325Device(
 //        gateway.eventBus, "3325B #2", "Hewlett Packard", "3325B", Uuid.random(), HP3325Driver(
@@ -89,7 +92,7 @@ fun Application.module() {
 //        )
 //    )
 
-    gateway.registerDevices(scope)
+    gateway.registerDevices(generator)
 
     configureHTTP()
     configureSerialization()
@@ -97,50 +100,18 @@ fun Application.module() {
 
     runBlocking {
         Thread.sleep(15000)
+//        gateway.eventBus.requestHandler.add(
+//            scope.uuid,
+//            DeviceRequest.ParameterWriteRequest(
+//                Uuid.random(),
+//                HM107Device.PARAMETER_TIMEBASE_A_SECONDS,
+//                ParameterValue.DoubleValue(2e-3)
+//            )
+//        )
         gateway.eventBus.requestHandler.add(
-            scope.uuid,
-            DeviceRequest.ParameterWriteRequest(
-                Uuid.random(),
-                HM107Device.PARAMETER_TIMEBASE_A_SECONDS,
-                ParameterValue.DoubleValue(2e-3)
-            )
-        )
-        gateway.eventBus.requestHandler.add(
-            scope.uuid,
+            generator.uuid,
             DeviceRequest.ParameterReadRequest(
-                Uuid.random(), HM107Device.PARAMETER_CHANNEL_1_WAVEFORM_VOLTAGE,
-                ReturnType.DoubleArray
-            )
-        )
-        gateway.eventBus.requestHandler.add(
-            scope.uuid,
-            DeviceRequest.ParameterWriteRequest(
-                Uuid.random(),
-                HM107Device.PARAMETER_TIMEBASE_A_SECONDS,
-                ParameterValue.DoubleValue(1e-3)
-            )
-        )
-        gateway.eventBus.requestHandler.add(
-            scope.uuid,
-            DeviceRequest.ParameterReadRequest(
-                Uuid.random(), HM107Device.PARAMETER_CHANNEL_1_WAVEFORM_VOLTAGE,
-                ReturnType.DoubleArray
-            )
-        )
-        gateway.eventBus.requestHandler.add(
-            scope.uuid,
-            DeviceRequest.ParameterWriteRequest(
-                Uuid.random(),
-                HM107Device.PARAMETER_INTENSITY_A,
-                ParameterValue.IntegerValue(0x00)
-            )
-        )
-        gateway.eventBus.requestHandler.add(
-            scope.uuid,
-            DeviceRequest.ParameterWriteRequest(
-                Uuid.random(),
-                HM107Device.PARAMETER_INTRO,
-                ParameterValue.IntegerValue(0x00)
+                Uuid.random(), "*"
             )
         )
     }

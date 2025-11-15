@@ -39,11 +39,11 @@ open class GenericOscilloscope @OptIn(ExperimentalUuidApi::class) constructor(
         "scope.acquisition.avg" to ParameterValue.IntegerValue(0)
     )
 
-    override fun writeState(force: Boolean): Boolean {
+    override suspend fun writeState(force: Boolean): Boolean {
         TODO("Not yet implemented")
     }
 
-    override fun readState(): Boolean {
+    override suspend fun readState(): Boolean {
         TODO("Not yet implemented")
     }
 

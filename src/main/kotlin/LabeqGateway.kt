@@ -23,7 +23,7 @@ class LabeqGateway(configuration: LabeqGatewayConfiguration) {
 
     fun registerDevice(device: GenericDevice): Boolean {
         log.info("Registering new device: ${device.model} by ${device.manufacturer}, ${device.name}@${device.uuid}")
-        devices.put(device.uuid, device)
+        devices[device.uuid] = device
         device.connect()
         return true
     }
