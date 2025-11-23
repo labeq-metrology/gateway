@@ -49,18 +49,18 @@ fun Application.module() {
 
     gateway = LabeqGateway(config)
 
-    val scope = HM107Device(
-        gateway.eventBus, "A", "B", "C", Uuid.random(), HM107Driver(
-            SerialConnection(
-                SerialConfiguration(
-                    port = "COM2",
-                    baudRate = 9600,
-                    stopBits = SerialStopBits.TWO,
-                    flowControl = SerialFlowControl.SOFTWARE
-                )
-            )
-        )
-    )
+//    val scope = HM107Device(
+//        gateway.eventBus, "A", "B", "C", Uuid.random(), HM107Driver(
+//            SerialConnection(
+//                SerialConfiguration(
+//                    port = "COM2",
+//                    baudRate = 9600,
+//                    stopBits = SerialStopBits.TWO,
+//                    flowControl = SerialFlowControl.SOFTWARE
+//                )
+//            )
+//        )
+//    )
 
     val generator = HP3325Device(
         gateway.eventBus, "3325B #1", "Hewlett Packard", "3325B", Uuid.random(), HP3325Driver(
@@ -99,7 +99,7 @@ fun Application.module() {
     configureRouting(gateway)
 
     runBlocking {
-        Thread.sleep(15000)
+//        Thread.sleep(15000)
 //        gateway.eventBus.requestHandler.add(
 //            scope.uuid,
 //            DeviceRequest.ParameterWriteRequest(

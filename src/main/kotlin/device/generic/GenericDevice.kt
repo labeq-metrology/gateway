@@ -128,13 +128,31 @@ abstract class GenericDevice @OptIn(ExperimentalUuidApi::class) constructor(
      * @param force the behavior varies per device, in general, allows the user to write invalid settings to the device
      * @return whether the operation succeeded or not
      */
-    abstract suspend fun writeState(force: Boolean): Boolean
+    open suspend fun writeState(force: Boolean): Boolean {
+        runCatching {
+            parameters.forEach { (key, value) ->
+                driver.writeParameter(key, value)
+            }
+        }.onFailure { return false }
+        return true
+    }
 
     /**
      * Read the state of the device and update stored parameters accordingly
      * @return whether the operation succeeded or not
      */
-    abstract suspend fun readState(): Boolean
+    open suspend fun readState(): Boolean {
+        runCatching {
+            parameters.keys.forEach { key ->
+                driver.queryParameter(key).let { result ->
+                    if (result is MessageResult.Result) {
+                        parameters[key] = result.result
+                    }
+                }
+            }
+        }.onFailure { return false }
+        return true
+    }
 
     /**
      * Establishes a connection to the device. The exact implementation of the connection logic

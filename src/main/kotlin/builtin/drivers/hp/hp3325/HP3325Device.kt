@@ -2,7 +2,8 @@ package com.labeq.builtin.drivers.hp.hp3325
 
 import com.labeq.communication.MQTTEventBus
 import com.labeq.device.DeviceDriver
-import com.labeq.device.generic.*
+import com.labeq.device.generic.GenericDevice
+import com.labeq.device.generic.ParameterGetter
 import com.labeq.transport.MessageResult
 import com.labeq.transport.ParameterValue
 import kotlin.uuid.ExperimentalUuidApi
@@ -19,73 +20,128 @@ class HP3325Device(
 ) : GenericDevice(eventBus, name, manufacturer, model, uuid, driver) {
 
     companion object {
-        // Basic generator parameters
+        // Signal generation
         const val PARAMETER_GENERATOR_FREQUENCY = "generator.frequency"
         const val PARAMETER_GENERATOR_AMPLITUDE = "generator.amplitude"
-        const val PARAMETER_GENERATOR_FUNCTION  = "generator.function"
-        const val PARAMETER_GENERATOR_WAVEFORM  = "generator.waveform"
-        const val PARAMETER_GENERATOR_OFFSET    = "generator.offset"
-        const val PARAMETER_GENERATOR_PHASE     = "generator.phase"
+        const val PARAMETER_GENERATOR_FUNCTION = "generator.function"
+        const val PARAMETER_GENERATOR_PHASE = "generator.phase"
+        const val PARAMETER_GENERATOR_HV = "generator.hv"
+        const val PARAMETER_GENERATOR_ZERO_PHASE = "generator.zero_phase"
+        const val PARAMETER_GENERATOR_OFFSET = "generator.offset"
+        const val PARAMETER_GENERATOR_OUTPUT_SELECT = "generator.output_select"
 
         // Sweep parameters
-        const val PARAMETER_SWEEP_START  = "sweep.start"
-        const val PARAMETER_SWEEP_STOP   = "sweep.stop"
-        const val PARAMETER_SWEEP_TIME   = "sweep.time"
-        const val PARAMETER_SWEEP_MODE   = "sweep.mode"
-        const val PARAMETER_SWEEP_TRIGGER = "sweep.trigger"  // stateless, setter only
+        const val PARAMETER_SWEEP_START = "sweep.start"
+        const val PARAMETER_SWEEP_STOP = "sweep.stop"
+        const val PARAMETER_SWEEP_TIME = "sweep.time"
+        const val PARAMETER_SWEEP_MODE = "sweep.mode"
+
+        const val PARAMETER_SWEEP_DISCRETE_CLEAR = "sweep.discrete.clear"
+        const val PARAMETER_SWEEP_DISCRETE_STORE = "sweep.discrete.store"
+        const val PARAMETER_SWEEP_DISCRETE_RECALL = "sweep.discrete.recall"
+
+        const val PARAMETER_SWEEP_SINGLE_START = "sweep.single.start"
+        const val PARAMETER_SWEEP_SINGLE_RESET = "sweep.single.reset"
+
+        const val PARAMETER_SWEEP_CONTINUOUS_START = "sweep.continuous.start"
+
+        // Marker
+        const val PARAMETER_MARKER_FREQUENCY = "marker.frequency"
 
         // Modulation
-        const val PARAMETER_MOD_ENABLED     = "modulation.enabled"
-        const val PARAMETER_MOD_SOURCE      = "modulation.source"
-        const val PARAMETER_MOD_AM_DEPTH    = "modulation.am.depth"
-        const val PARAMETER_MOD_FM_DEVIATION= "modulation.fm.deviation"
-        const val PARAMETER_MOD_PM_DEVIATION= "modulation.pm.deviation"
+        const val PARAMETER_MODULATION_SOURCE_AMPLITUDE = "modulation.source.amplitude"
+        const val PARAMETER_MODULATION_SOURCE_ARBITRARY_DATA = "modulation.source.arbitrary_data"
+        const val PARAMETER_MODULATION_SOURCE_FREQUENCY = "modulation.source.frequency"
+        const val PARAMETER_MODULATION_SOURCE_FUNCTION = "modulation.source.function"
 
-        // Memory / state control
-        const val PARAMETER_MEMORY_STORE  = "memory.store"
-        const val PARAMETER_MEMORY_RECALL = "memory.recall"
+        const val PARAMETER_AMPLITUDE_MODULATION = "modulation.amplitude"
+        const val PARAMETER_PHASE_MODULATION = "modulation.phase"
 
-        // Status / error / display
-        const val PARAMETER_DEVICE_ERROR  = "device.error"
-        const val PARAMETER_DEVICE_STATUS = "device.status"
-        const val PARAMETER_DISPLAY_TEXT  = "display.text"
+        // Memory / states
+        const val PARAMETER_STATE_STORE = "state.store"
+        const val PARAMETER_STATE_RECALL = "state.recall"
+
+        // Status / errors / self test
+        const val PARAMETER_CALIBRATION_AMPLITUDE = "calibration.amplitude"
+        const val PARAMETER_CALIBRATION_MODE = "calibration.mode"
+
+        const val PARAMETER_ENHANCEMENTS = "status.enhancements"
+        const val PARAMETER_ERROR = "status.error"
+
+        const val PARAMETER_EXTERNAL_REFERENCE_LOCK = "status.external_reference_lock"
+
+        const val PARAMETER_LOCAL_ENABLE = "status.local_enable"
+        const val PARAMETER_REMOTE_ENABLE = "status.remote_enable"
+
+        const val PARAMETER_RESET_DEVICE = "status.reset"
+
+        const val PARAMETER_BYTE_MASK = "status.byte_mask"
+        const val PARAMETER_SRQ_ENABLE = "status.srq_enable"
+        const val PARAMETER_STATUS_BYTE = "status.byte"
+
+        const val PARAMETER_IDENTIFICATION_STANDARD = "status.id.standard"
+        const val PARAMETER_IDENTIFICATION_488_2 = "status.id.ieee488"
+
+        const val PARAMETER_OPTIONS = "status.options"
+
+        // Communication
+        const val PARAMETER_RS232_ECHO = "communication.echo"
+        const val PARAMETER_RES_HEAD = "communication.head"
+
+        const val PARAMETER_DATA_TRANSFER_MODE = "communication.data_transfer_mode"
+
+        // Display
+        const val PARAMETER_DISPLAY_ENABLE = "display.enable"
+        const val PARAMETER_DISPLAY_STRING = "display.string"
     }
 
     override val parameters: MutableMap<String, ParameterValue> = mutableMapOf(
-        // generator core
         PARAMETER_GENERATOR_FREQUENCY to ParameterValue.StringValue("0HZ"),
-        PARAMETER_GENERATOR_AMPLITUDE to ParameterValue.StringValue("0.001VO"),
-        PARAMETER_GENERATOR_FUNCTION  to ParameterValue.IntegerValue(0),
-        PARAMETER_GENERATOR_WAVEFORM  to ParameterValue.StringValue("SINE"),
-        PARAMETER_GENERATOR_OFFSET    to ParameterValue.StringValue("0V"),
-        PARAMETER_GENERATOR_PHASE     to ParameterValue.StringValue("0DEG"),
-
-        // sweep
-        PARAMETER_SWEEP_START  to ParameterValue.StringValue("1KH"),
-        PARAMETER_SWEEP_STOP   to ParameterValue.StringValue("10KH"),
-        PARAMETER_SWEEP_TIME   to ParameterValue.StringValue("1S"),
-        PARAMETER_SWEEP_MODE   to ParameterValue.StringValue("LIN"),
-
-        // sweep.trigger – brak domyślnej wartości (stateless)
-        PARAMETER_SWEEP_TRIGGER to ParameterValue.StringValue(""),
-
-        // modulation
-        PARAMETER_MOD_ENABLED      to ParameterValue.IntegerValue(0),
-        PARAMETER_MOD_SOURCE       to ParameterValue.StringValue("INT"),
-        PARAMETER_MOD_AM_DEPTH     to ParameterValue.StringValue("0%"),
-        PARAMETER_MOD_FM_DEVIATION to ParameterValue.StringValue("0HZ"),
-        PARAMETER_MOD_PM_DEVIATION to ParameterValue.StringValue("0DEG"),
-
-        // memory
-        PARAMETER_MEMORY_STORE     to ParameterValue.IntegerValue(0),
-        PARAMETER_MEMORY_RECALL    to ParameterValue.IntegerValue(0),
-
-        // status / error
-        PARAMETER_DEVICE_ERROR  to ParameterValue.StringValue(""),
-        PARAMETER_DEVICE_STATUS to ParameterValue.StringValue(""),
-
-        // display
-        PARAMETER_DISPLAY_TEXT  to ParameterValue.StringValue("")
+        PARAMETER_GENERATOR_AMPLITUDE to ParameterValue.StringValue("0VO"),
+        PARAMETER_GENERATOR_FUNCTION to ParameterValue.IntegerValue(0),
+        PARAMETER_GENERATOR_HV to ParameterValue.StringValue(""),
+        PARAMETER_GENERATOR_PHASE to ParameterValue.StringValue("0DEG"),
+        PARAMETER_GENERATOR_ZERO_PHASE to ParameterValue.IntegerValue(0),
+        PARAMETER_GENERATOR_OFFSET to ParameterValue.StringValue("0VO"),
+        PARAMETER_GENERATOR_OUTPUT_SELECT to ParameterValue.IntegerValue(1),
+        PARAMETER_SWEEP_START to ParameterValue.StringValue("0HZ"),
+        PARAMETER_SWEEP_STOP to ParameterValue.StringValue("0HZ"),
+        PARAMETER_SWEEP_TIME to ParameterValue.StringValue("0SE"),
+        PARAMETER_SWEEP_MODE to ParameterValue.IntegerValue(1),
+        PARAMETER_SWEEP_DISCRETE_CLEAR to ParameterValue.IntegerValue(0),
+        PARAMETER_SWEEP_DISCRETE_STORE to ParameterValue.IntegerValue(0),
+        PARAMETER_SWEEP_DISCRETE_RECALL to ParameterValue.IntegerValue(0),
+        PARAMETER_SWEEP_SINGLE_START to ParameterValue.IntegerValue(0),
+        PARAMETER_SWEEP_SINGLE_RESET to ParameterValue.IntegerValue(0),
+        PARAMETER_SWEEP_CONTINUOUS_START to ParameterValue.IntegerValue(0),
+        PARAMETER_MARKER_FREQUENCY to ParameterValue.StringValue("0HZ"),
+        PARAMETER_MODULATION_SOURCE_AMPLITUDE to ParameterValue.StringValue("0VO"),
+        PARAMETER_MODULATION_SOURCE_ARBITRARY_DATA to ParameterValue.DoubleArrayValue(doubleArrayOf()),
+        PARAMETER_MODULATION_SOURCE_FREQUENCY to ParameterValue.StringValue("0HZ"),
+        PARAMETER_MODULATION_SOURCE_FUNCTION to ParameterValue.IntegerValue(0),
+        PARAMETER_AMPLITUDE_MODULATION to ParameterValue.IntegerValue(0),
+        PARAMETER_PHASE_MODULATION to ParameterValue.IntegerValue(0),
+        PARAMETER_STATE_STORE to ParameterValue.IntegerValue(0),
+        PARAMETER_STATE_RECALL to ParameterValue.IntegerValue(0),
+        PARAMETER_CALIBRATION_AMPLITUDE to ParameterValue.IntegerValue(0),
+        PARAMETER_CALIBRATION_MODE to ParameterValue.IntegerValue(0),
+        PARAMETER_ENHANCEMENTS to ParameterValue.IntegerValue(0),
+        PARAMETER_ERROR to ParameterValue.IntegerValue(0),
+        PARAMETER_EXTERNAL_REFERENCE_LOCK to ParameterValue.IntegerValue(0),
+        PARAMETER_LOCAL_ENABLE to ParameterValue.IntegerValue(0),
+        PARAMETER_REMOTE_ENABLE to ParameterValue.IntegerValue(0),
+        PARAMETER_RESET_DEVICE to ParameterValue.IntegerValue(0),
+        PARAMETER_BYTE_MASK to ParameterValue.BytesValue(byteArrayOf()),
+        PARAMETER_SRQ_ENABLE to ParameterValue.StringValue(""),
+        PARAMETER_STATUS_BYTE to ParameterValue.BytesValue(byteArrayOf()),
+        PARAMETER_IDENTIFICATION_STANDARD to ParameterValue.StringValue(""),
+        PARAMETER_IDENTIFICATION_488_2 to ParameterValue.StringValue(""),
+        PARAMETER_OPTIONS to ParameterValue.StringValue(""),
+        PARAMETER_RS232_ECHO to ParameterValue.IntegerValue(0),
+        PARAMETER_RES_HEAD to ParameterValue.IntegerValue(0),
+        PARAMETER_DATA_TRANSFER_MODE to ParameterValue.IntegerValue(1),
+        PARAMETER_DISPLAY_ENABLE to ParameterValue.IntegerValue(0),
+        PARAMETER_DISPLAY_STRING to ParameterValue.StringValue("")
     )
 
     // -----------------------------
@@ -94,194 +150,142 @@ class HP3325Device(
     override fun connect(): Boolean = driver.connect()
     override fun disconnect(): Boolean = driver.disconnect()
 
-    // -----------------------------
-    // State synchronization
-    // -----------------------------
-    override suspend fun writeState(force: Boolean): Boolean {
-        // push all parameters to driver
-        runCatching {
-            parameters.forEach { (key, value) ->
-                driver.writeParameter(key, value)
-            }
-        }.onFailure { return false }
-        return true
-    }
-
-    override suspend fun readState(): Boolean {
-        // read all supported parameters from driver
-        runCatching {
-            parameters.keys.forEach { key ->
-                driver.queryParameter(key)?.let { result ->
-                    if (result is MessageResult.Result) {
-                        parameters[key] = result.result
-                    }
-                }
-            }
-        }.onFailure { return false }
-        return true
-    }
-
-    // -----------------------------
-    // Parameter bindings
-    // -----------------------------
-    @ParameterSetter(PARAMETER_GENERATOR_FREQUENCY)
-    suspend fun setFrequency(value: ParameterValue) =
-        driver.writeParameter(PARAMETER_GENERATOR_FREQUENCY, value)
+    @ParameterGetter(PARAMETER_GENERATOR_AMPLITUDE)
+    suspend fun getGeneratorAmplitude(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_GENERATOR_AMPLITUDE)
 
     @ParameterGetter(PARAMETER_GENERATOR_FREQUENCY)
-    suspend fun getFrequency() =
-        driver.queryParameter(PARAMETER_GENERATOR_FREQUENCY)
-
-    @ParameterSetter(PARAMETER_GENERATOR_AMPLITUDE)
-    suspend fun setAmplitude(value: ParameterValue) =
-        driver.writeParameter(PARAMETER_GENERATOR_AMPLITUDE, value)
-
-    @ParameterGetter(PARAMETER_GENERATOR_AMPLITUDE)
-    suspend fun getAmplitude() =
-        driver.queryParameter(PARAMETER_GENERATOR_AMPLITUDE)
-
-    @ParameterSetter(PARAMETER_GENERATOR_FUNCTION)
-    suspend fun setFunction(value: ParameterValue) =
-        driver.writeParameter(PARAMETER_GENERATOR_FUNCTION, value)
+    suspend fun getGeneratorFrequency(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_GENERATOR_FREQUENCY)
 
     @ParameterGetter(PARAMETER_GENERATOR_FUNCTION)
-    suspend fun getFunction() =
-        driver.queryParameter(PARAMETER_GENERATOR_FUNCTION)
-
-    @ParameterSetter(PARAMETER_GENERATOR_WAVEFORM)
-    suspend fun setWaveform(value: ParameterValue) =
-        driver.writeParameter(PARAMETER_GENERATOR_WAVEFORM, value)
-
-    @ParameterGetter(PARAMETER_GENERATOR_WAVEFORM)
-    suspend fun getWaveform() =
-        driver.queryParameter(PARAMETER_GENERATOR_WAVEFORM)
-
-    @ParameterSetter(PARAMETER_GENERATOR_OFFSET)
-    suspend fun setOffset(value: ParameterValue) =
-        driver.writeParameter(PARAMETER_GENERATOR_OFFSET, value)
-
-    @ParameterGetter(PARAMETER_GENERATOR_OFFSET)
-    suspend fun getOffset() =
-        driver.queryParameter(PARAMETER_GENERATOR_OFFSET)
-
-    @ParameterSetter(PARAMETER_GENERATOR_PHASE)
-    suspend fun setPhase(value: ParameterValue) =
-        driver.writeParameter(PARAMETER_GENERATOR_PHASE, value)
+    suspend fun getGeneratorFunction(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_GENERATOR_FUNCTION)
 
     @ParameterGetter(PARAMETER_GENERATOR_PHASE)
-    suspend fun getPhase() =
-        driver.queryParameter(PARAMETER_GENERATOR_PHASE)
+    suspend fun getGeneratorPhase(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_GENERATOR_PHASE)
 
-    // ---- Sweep ----
-    @ParameterSetter(PARAMETER_SWEEP_START)
-    suspend fun setSweepStart(value: ParameterValue) =
-        driver.writeParameter(PARAMETER_SWEEP_START, value)
+    @ParameterGetter(PARAMETER_GENERATOR_HV)
+    suspend fun getGeneratorHv(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_GENERATOR_HV)
+
+    @ParameterGetter(PARAMETER_GENERATOR_ZERO_PHASE)
+    suspend fun getGeneratorZeroPhase(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_GENERATOR_ZERO_PHASE)
+
+    @ParameterGetter(PARAMETER_GENERATOR_OFFSET)
+    suspend fun getGeneratorOffset(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_GENERATOR_OFFSET)
+
+    @ParameterGetter(PARAMETER_GENERATOR_OUTPUT_SELECT)
+    suspend fun getGeneratorOutputSelect(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_GENERATOR_OUTPUT_SELECT)
 
     @ParameterGetter(PARAMETER_SWEEP_START)
-    suspend fun getSweepStart() =
-        driver.queryParameter(PARAMETER_SWEEP_START)
-
-    @ParameterSetter(PARAMETER_SWEEP_STOP)
-    suspend fun setSweepStop(value: ParameterValue) =
-        driver.writeParameter(PARAMETER_SWEEP_STOP, value)
+    suspend fun getSweepStart(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_SWEEP_START)
 
     @ParameterGetter(PARAMETER_SWEEP_STOP)
-    suspend fun getSweepStop() =
-        driver.queryParameter(PARAMETER_SWEEP_STOP)
-
-    @ParameterSetter(PARAMETER_SWEEP_TIME)
-    suspend fun setSweepTime(value: ParameterValue) =
-        driver.writeParameter(PARAMETER_SWEEP_TIME, value)
+    suspend fun getSweepStop(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_SWEEP_STOP)
 
     @ParameterGetter(PARAMETER_SWEEP_TIME)
-    suspend fun getSweepTime() =
-        driver.queryParameter(PARAMETER_SWEEP_TIME)
-
-    @ParameterSetter(PARAMETER_SWEEP_MODE)
-    suspend fun setSweepMode(value: ParameterValue) =
-        driver.writeParameter(PARAMETER_SWEEP_MODE, value)
+    suspend fun getSweepTime(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_SWEEP_TIME)
 
     @ParameterGetter(PARAMETER_SWEEP_MODE)
-    suspend fun getSweepMode() =
-        driver.queryParameter(PARAMETER_SWEEP_MODE)
+    suspend fun getSweepMode(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_SWEEP_MODE)
 
-    @ParameterSetter(PARAMETER_SWEEP_TRIGGER)
-    suspend fun triggerSweep(@Suppress("UNUSED_PARAMETER") value: ParameterValue) =
-        driver.writeParameter(PARAMETER_SWEEP_TRIGGER, ParameterValue.StringValue("TRIGGER"))
+    @ParameterGetter(PARAMETER_SWEEP_DISCRETE_CLEAR)
+    suspend fun getSweepDiscreteClear(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_SWEEP_DISCRETE_CLEAR)
 
-    // ---- Modulation ----
-    @ParameterSetter(PARAMETER_MOD_ENABLED)
-    suspend fun setModEnabled(value: ParameterValue) =
-        driver.writeParameter(PARAMETER_MOD_ENABLED, value)
+    @ParameterGetter(PARAMETER_SWEEP_DISCRETE_STORE)
+    suspend fun getSweepDiscreteStore(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_SWEEP_DISCRETE_STORE)
 
-    @ParameterGetter(PARAMETER_MOD_ENABLED)
-    suspend fun getModEnabled() =
-        driver.queryParameter(PARAMETER_MOD_ENABLED)
+    @ParameterGetter(PARAMETER_SWEEP_DISCRETE_RECALL)
+    suspend fun getSweepDiscreteRecall(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_SWEEP_DISCRETE_RECALL)
 
-    @ParameterSetter(PARAMETER_MOD_SOURCE)
-    suspend fun setModSource(value: ParameterValue) =
-        driver.writeParameter(PARAMETER_MOD_SOURCE, value)
+    @ParameterGetter(PARAMETER_SWEEP_SINGLE_START)
+    suspend fun getSweepSingleStart(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_SWEEP_SINGLE_START)
 
-    @ParameterGetter(PARAMETER_MOD_SOURCE)
-    suspend fun getModSource() =
-        driver.queryParameter(PARAMETER_MOD_SOURCE)
+    @ParameterGetter(PARAMETER_SWEEP_SINGLE_RESET)
+    suspend fun getSweepSingleReset(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_SWEEP_SINGLE_RESET)
 
-    @ParameterSetter(PARAMETER_MOD_AM_DEPTH)
-    suspend fun setAMDepth(value: ParameterValue) =
-        driver.writeParameter(PARAMETER_MOD_AM_DEPTH, value)
+    @ParameterGetter(PARAMETER_SWEEP_CONTINUOUS_START)
+    suspend fun getSweepContinuousStart(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_SWEEP_CONTINUOUS_START)
 
-    @ParameterGetter(PARAMETER_MOD_AM_DEPTH)
-    suspend fun getAMDepth() =
-        driver.queryParameter(PARAMETER_MOD_AM_DEPTH)
+    @ParameterGetter(PARAMETER_MARKER_FREQUENCY)
+    suspend fun getMarkerFrequency(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_MARKER_FREQUENCY)
 
-    @ParameterSetter(PARAMETER_MOD_FM_DEVIATION)
-    suspend fun setFMDeviation(value: ParameterValue) =
-        driver.writeParameter(PARAMETER_MOD_FM_DEVIATION, value)
+    @ParameterGetter(PARAMETER_MODULATION_SOURCE_AMPLITUDE)
+    suspend fun getModulationSourceAmplitude(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_MODULATION_SOURCE_AMPLITUDE)
 
-    @ParameterGetter(PARAMETER_MOD_FM_DEVIATION)
-    suspend fun getFMDeviation() =
-        driver.queryParameter(PARAMETER_MOD_FM_DEVIATION)
+    @ParameterGetter(PARAMETER_MODULATION_SOURCE_ARBITRARY_DATA)
+    suspend fun getModulationSourceArbitraryData(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_MODULATION_SOURCE_ARBITRARY_DATA)
 
-    @ParameterSetter(PARAMETER_MOD_PM_DEVIATION)
-    suspend fun setPMDeviation(value: ParameterValue) =
-        driver.writeParameter(PARAMETER_MOD_PM_DEVIATION, value)
+    @ParameterGetter(PARAMETER_MODULATION_SOURCE_FREQUENCY)
+    suspend fun getModulationSourceFrequency(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_MODULATION_SOURCE_FREQUENCY)
 
-    @ParameterGetter(PARAMETER_MOD_PM_DEVIATION)
-    suspend fun getPMDeviation() =
-        driver.queryParameter(PARAMETER_MOD_PM_DEVIATION)
+    @ParameterGetter(PARAMETER_MODULATION_SOURCE_FUNCTION)
+    suspend fun getModulationSourceFunction(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_MODULATION_SOURCE_FUNCTION)
 
-    // ---- Memory ----
-    @ParameterSetter(PARAMETER_MEMORY_STORE)
-    suspend fun storeMemory(value: ParameterValue) =
-        driver.writeParameter(PARAMETER_MEMORY_STORE, value)
+    @ParameterGetter(PARAMETER_AMPLITUDE_MODULATION)
+    suspend fun getAmplitudeModulation(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_AMPLITUDE_MODULATION)
 
-    @ParameterGetter(PARAMETER_MEMORY_STORE)
-    suspend fun getMemoryStore() =
-        driver.queryParameter(PARAMETER_MEMORY_STORE)
+    @ParameterGetter(PARAMETER_PHASE_MODULATION)
+    suspend fun getPhaseModulation(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_PHASE_MODULATION)
 
-    @ParameterSetter(PARAMETER_MEMORY_RECALL)
-    suspend fun recallMemory(value: ParameterValue) =
-        driver.writeParameter(PARAMETER_MEMORY_RECALL, value)
+    @ParameterGetter(PARAMETER_STATE_STORE)
+    suspend fun getStateStore(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_STATE_STORE)
 
-    @ParameterGetter(PARAMETER_MEMORY_RECALL)
-    suspend fun getMemoryRecall() =
-        driver.queryParameter(PARAMETER_MEMORY_RECALL)
+    @ParameterGetter(PARAMETER_STATE_RECALL)
+    suspend fun getStateRecall(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_STATE_RECALL)
 
-    // ---- Device status ----
-    @ParameterGetter(PARAMETER_DEVICE_ERROR)
-    suspend fun getDeviceError() =
-        driver.queryParameter(PARAMETER_DEVICE_ERROR)
+    @ParameterGetter(PARAMETER_CALIBRATION_AMPLITUDE)
+    suspend fun getCalibrationAmplitude(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_CALIBRATION_AMPLITUDE)
 
-    @ParameterGetter(PARAMETER_DEVICE_STATUS)
-    suspend fun getDeviceStatus() =
-        driver.queryParameter(PARAMETER_DEVICE_STATUS)
+    @ParameterGetter(PARAMETER_CALIBRATION_MODE)
+    suspend fun getCalibrationMode(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_CALIBRATION_MODE)
 
-    // ---- Display ----
-    @ParameterSetter(PARAMETER_DISPLAY_TEXT)
-    suspend fun setDisplayText(value: ParameterValue) =
-        driver.writeParameter(PARAMETER_DISPLAY_TEXT, value)
+    @ParameterGetter(PARAMETER_ENHANCEMENTS)
+    suspend fun getEnhancements(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_ENHANCEMENTS)
 
-    @ParameterGetter(PARAMETER_DISPLAY_TEXT)
-    suspend fun getDisplayText() =
-        driver.queryParameter(PARAMETER_DISPLAY_TEXT)
+    @ParameterGetter(PARAMETER_ERROR)
+    suspend fun getError(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_ERROR)
+
+    @ParameterGetter(PARAMETER_EXTERNAL_REFERENCE_LOCK)
+    suspend fun getExternalReferenceLock(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_EXTERNAL_REFERENCE_LOCK)
+
+    @ParameterGetter(PARAMETER_LOCAL_ENABLE)
+    suspend fun getLocalEnable(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_LOCAL_ENABLE)
+
+    @ParameterGetter(PARAMETER_REMOTE_ENABLE)
+    suspend fun getRemoteEnable(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_REMOTE_ENABLE)
+
+    @ParameterGetter(PARAMETER_RESET_DEVICE)
+    suspend fun getResetDevice(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_RESET_DEVICE)
+
+    @ParameterGetter(PARAMETER_BYTE_MASK)
+    suspend fun getByteMask(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_BYTE_MASK)
+
+    @ParameterGetter(PARAMETER_SRQ_ENABLE)
+    suspend fun getSrqEnable(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_SRQ_ENABLE)
+
+    @ParameterGetter(PARAMETER_STATUS_BYTE)
+    suspend fun getStatusByte(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_STATUS_BYTE)
+
+    @ParameterGetter(PARAMETER_IDENTIFICATION_STANDARD)
+    suspend fun getIdentificationStandard(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_IDENTIFICATION_STANDARD)
+
+    @ParameterGetter(PARAMETER_IDENTIFICATION_488_2)
+    suspend fun getIdentification4882(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_IDENTIFICATION_488_2)
+
+    @ParameterGetter(PARAMETER_OPTIONS)
+    suspend fun getOptions(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_OPTIONS)
+
+    @ParameterGetter(PARAMETER_RS232_ECHO)
+    suspend fun getRs232Echo(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_RS232_ECHO)
+
+    @ParameterGetter(PARAMETER_RES_HEAD)
+    suspend fun getResHead(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_RES_HEAD)
+
+    @ParameterGetter(PARAMETER_DATA_TRANSFER_MODE)
+    suspend fun getDataTransferMode(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_DATA_TRANSFER_MODE)
+
+    @ParameterGetter(PARAMETER_DISPLAY_ENABLE)
+    suspend fun getDisplayEnable(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_DISPLAY_ENABLE)
+
+    @ParameterGetter(PARAMETER_DISPLAY_STRING)
+    suspend fun getDisplayString(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_DISPLAY_STRING)
+
 }
