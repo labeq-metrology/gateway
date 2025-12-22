@@ -76,21 +76,6 @@ fun Application.module() {
             )
         )
     )
-//
-//    val generator2 = HP3325Device(
-//        gateway.eventBus, "3325B #2", "Hewlett Packard", "3325B", Uuid.random(), HP3325Driver(
-//            SerialConnection(
-//                SerialConfiguration(
-//                    port = "COM3",
-//                    baudRate = 300,
-//                    dataBits = 7,
-//                    stopBits = SerialStopBits.ONE,
-//                    flowControl = SerialFlowControl.SOFTWARE,
-//                    parity = SerialParity.EVEN
-//                )
-//            )
-//        )
-//    )
 
     gateway.registerDevices(generator)
 

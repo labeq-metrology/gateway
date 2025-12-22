@@ -167,7 +167,7 @@ class HP3325Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConn
         parameter: String, value: ParameterValue, returnType: ReturnType
     ): MessageResult<ParameterValue> {
         return when (parameter) {
-
+            // HP3325Device.PARAMETER_GENERATOR_FREQUENCY
 
             else -> MessageResult.Error("Invalid parameter: $parameter")
         }
@@ -231,6 +231,5 @@ class HP3325Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConn
         }
         return MessageResult.Error("Unknown error")
     }
-
 
 }

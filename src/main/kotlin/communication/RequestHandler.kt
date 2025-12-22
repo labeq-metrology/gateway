@@ -76,6 +76,11 @@ class RequestHandler @OptIn(DelicateCoroutinesApi::class) constructor(
                                     request.requestedParameter,
                                     it
                                 )
+                                eventBus.publishParameterUpdate(
+                                    device,
+                                    request.requestedParameter,
+                                    it
+                                )
                             }
                     }
 
