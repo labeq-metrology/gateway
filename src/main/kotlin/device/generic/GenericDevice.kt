@@ -24,7 +24,7 @@ abstract class GenericDevice @OptIn(ExperimentalUuidApi::class) constructor(
     val eventBus: MQTTEventBus,
     val name: String,
     val manufacturer: String,
-    val model: String,
+    var model: String,
     val uuid: Uuid,
     val driver: DeviceDriver
 ) {

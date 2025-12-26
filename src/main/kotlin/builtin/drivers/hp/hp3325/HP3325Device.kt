@@ -1,5 +1,6 @@
 package com.labeq.builtin.drivers.hp.hp3325
 
+import com.labeq.communication.DeviceRequest
 import com.labeq.communication.MQTTEventBus
 import com.labeq.device.DeviceDriver
 import com.labeq.device.generic.GenericDevice
@@ -14,10 +15,9 @@ class HP3325Device(
     eventBus: MQTTEventBus,
     name: String,
     manufacturer: String,
-    model: String,
     uuid: Uuid,
     driver: DeviceDriver,
-) : GenericDevice(eventBus, name, manufacturer, model, uuid, driver) {
+) : GenericDevice(eventBus, name, manufacturer, "HP3325", uuid, driver) {
 
     companion object {
         // Signal generation
