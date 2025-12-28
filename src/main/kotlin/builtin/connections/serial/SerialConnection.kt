@@ -123,7 +123,6 @@ class SerialConnection(connectionConfiguration: ConnectionConfiguration) : Devic
         return withContext(Dispatchers.IO) {
             try {
                 val port = port ?: return@withContext MessageResult.Error("Port not open")
-
                 log.debug("[Request $requestId] Sending ${data.size} bytes")
                 log.debug("[Request $requestId] Sending message: ${data.decodeToString()}")
                 port.outputStream.use { it.write(data); it.flush() }
@@ -221,6 +220,14 @@ class SerialConnection(connectionConfiguration: ConnectionConfiguration) : Devic
                     delay(10)
                 }
             }
+        }
+
+        // Flush any remaining bytes after closing the use block
+        val remaining = port.bytesAvailable()
+        if (remaining > 0) {
+            log.debug("[Request $requestId] Flushing $remaining remaining bytes after stop sequence")
+            val flushBuffer = ByteArray(remaining)
+            port.inputStream.use { it.readNBytes(flushBuffer, 0, remaining) }
         }
 
         buffer.copyOf(totalRead)

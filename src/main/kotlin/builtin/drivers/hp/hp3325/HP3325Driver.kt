@@ -191,7 +191,7 @@ class HP3325Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConn
             if (!connection.open()) return@runBlocking false
             connection.send(REMOTE_ENABLE)
             connection.send("DISP1")
-            connection.send(RESET_DEVICE)
+//            connection.send(RESET_DEVICE)
             connection.query(AMPLITUDE + INTERROGATE, -1).onSuccess {
                 connection.send("$DISPLAY_STRING'GATEWAY CTL'")
                 return@runBlocking true

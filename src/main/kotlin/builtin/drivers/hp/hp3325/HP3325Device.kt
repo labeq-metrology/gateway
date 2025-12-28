@@ -225,12 +225,6 @@ class HP3325Device(
     @ParameterGetter(PARAMETER_PHASE_MODULATION)
     suspend fun getPhaseModulation(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_PHASE_MODULATION)
 
-    @ParameterGetter(PARAMETER_STATE_STORE)
-    suspend fun getStateStore(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_STATE_STORE)
-
-    @ParameterGetter(PARAMETER_STATE_RECALL)
-    suspend fun getStateRecall(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_STATE_RECALL)
-
     @ParameterGetter(PARAMETER_CALIBRATION_AMPLITUDE)
     suspend fun getCalibrationAmplitude(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_CALIBRATION_AMPLITUDE)
 
