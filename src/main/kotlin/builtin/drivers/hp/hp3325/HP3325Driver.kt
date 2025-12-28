@@ -6,6 +6,7 @@ import kotlinx.coroutines.runBlocking
 
 class HP3325Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConnection) {
     private companion object {
+        val FREQUENCY_UNITS = listOf<String>("HZ", "KH", "MH");
 
         const val INTERROGATE = "?"
 
@@ -167,7 +168,7 @@ class HP3325Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConn
         parameter: String, value: ParameterValue, returnType: ReturnType
     ): MessageResult<ParameterValue> {
         return when (parameter) {
-            // HP3325Device.PARAMETER_GENERATOR_FREQUENCY
+            HP3325Device.PARAMETER_GENERATOR_FREQUENCY -> writeFrequency(value)
 
             else -> MessageResult.Error("Invalid parameter: $parameter")
         }
@@ -229,6 +230,41 @@ class HP3325Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConn
                 ParameterValue.IntegerValue(stripPrefix(it.value, parameter).toInt())
             )
         }
+        return MessageResult.Error("Unknown error")
+    }
+
+    private suspend fun writeFrequency(value: ParameterValue): MessageResult<ParameterValue.StringValue> {
+        var frequency: Double;
+        var unit: String;
+        when (value) {
+            is ParameterValue.StringValue -> {
+                val frequencyRegex = "(?<frequency>[0-9]+\\.?[0-9]*)(?<unit>[a-zA-Z]{2})".toRegex();
+                val match = frequencyRegex.matchEntire(value.value) ?: return MessageResult.Error("Invalid frequency: $value");
+
+                unit = match.groupValues[2]
+                if (!FREQUENCY_UNITS.contains(unit)) return MessageResult.Error("Invalid unit: $unit")
+                frequency = match.groupValues[1].toDouble()
+            }
+            is ParameterValue.DoubleValue -> {
+                frequency = value.value;
+                unit = "HZ";
+            }
+            else -> return MessageResult.Error("Invalid content type")
+        }
+
+        val normalizedFrequency = when (unit) {
+            "HZ" -> frequency;
+            "KH" -> frequency * 1000;
+            "MH" -> frequency * 1000000;
+            else -> return MessageResult.Error("Invalid unit: $unit")
+        }
+
+        if (normalizedFrequency <= 0 || normalizedFrequency > 60000000) return MessageResult.Error("Frequency out of range")
+
+        connection.send(FREQUENCY + normalizedFrequency + "HZ").onSuccess {
+            return standardStringInterrogate(FREQUENCY)
+        }.onFailure { return MessageResult.Error(it) }
+
         return MessageResult.Error("Unknown error")
     }
 

@@ -55,7 +55,9 @@ class RequestHandler @OptIn(DelicateCoroutinesApi::class) constructor(
                 when (val request = queue.take()) {
                     is DeviceRequest.ParameterReadRequest -> {
                         val readResult = if (request.requestedParameter == "*") {
-                            if (device.readState()) MessageResult.Result(ParameterValue.StringValue("OK")) else MessageResult.Error("Error while reading device state")
+                            if (device.readState()) MessageResult.Result(ParameterValue.StringValue("OK")) else MessageResult.Error(
+                                "Error while reading device state"
+                            )
                         } else {
                             device.readParameter(request.requestedParameter, request.returnType)
                         }
@@ -85,8 +87,15 @@ class RequestHandler @OptIn(DelicateCoroutinesApi::class) constructor(
                     }
 
                     is DeviceRequest.ParameterWriteRequest -> {
-                        println(request)
-                        println(device.setParameter(request.requestedParameter, request.value))
+                        when (val result = device.setParameter(request.requestedParameter, request.value)) {
+                            is MessageResult.Result -> continue
+                            is MessageResult.Error -> eventBus.publishResolveError(
+                                request.requestId,
+                                device,
+                                request.requestedParameter,
+                                result.error
+                            )
+                        }
                     }
                 }
             }

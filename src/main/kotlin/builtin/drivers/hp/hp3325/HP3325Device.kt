@@ -5,8 +5,10 @@ import com.labeq.communication.MQTTEventBus
 import com.labeq.device.DeviceDriver
 import com.labeq.device.generic.GenericDevice
 import com.labeq.device.generic.ParameterGetter
+import com.labeq.device.generic.ParameterSetter
 import com.labeq.transport.MessageResult
 import com.labeq.transport.ParameterValue
+import com.labeq.transport.ReturnType
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -155,6 +157,8 @@ class HP3325Device(
 
     @ParameterGetter(PARAMETER_GENERATOR_FREQUENCY)
     suspend fun getGeneratorFrequency(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_GENERATOR_FREQUENCY)
+    @ParameterSetter(PARAMETER_GENERATOR_FREQUENCY)
+    suspend fun setGeneratorFrequency(value: ParameterValue): MessageResult<ParameterValue> = driver.writeParameter(PARAMETER_GENERATOR_FREQUENCY, value)
 
     @ParameterGetter(PARAMETER_GENERATOR_FUNCTION)
     suspend fun getGeneratorFunction(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_GENERATOR_FUNCTION)

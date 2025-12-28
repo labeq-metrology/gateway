@@ -73,7 +73,10 @@ abstract class GenericDevice @OptIn(ExperimentalUuidApi::class) constructor(
             when (val result = function.callSuspend(this, value) as MessageResult<*>) {
                 is MessageResult.Error -> MessageResult.Error("Failed to set parameter $parameter: ${result.error}")
                 is MessageResult.Result -> {
-                    notifyParameterUpdate(parameter, value)
+                    if (result.result is ParameterValue) {
+                        notifyParameterUpdate(parameter, result.result)
+                        parameters[parameter] = result.result
+                    } else notifyParameterUpdate(parameter, value)
                     MessageResult.Result(value)
                 }
             }
