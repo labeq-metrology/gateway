@@ -61,45 +61,47 @@ class RequestHandler @OptIn(DelicateCoroutinesApi::class) constructor(
                         } else {
                             device.readParameter(request.requestedParameter, request.returnType)
                         }
-                        readResult
-                            .onFailure {
-                                eventBus.publishResolveError(
-                                    request.requestId,
-                                    device,
-                                    request.requestedParameter,
-                                    "Failed to read parameter"
-                                )
-                            }
-                            .onSuccess {
-                                device.parameters[request.requestedParameter] = it
-                                eventBus.publishParameterResolve(
-                                    request.requestId,
-                                    device,
-                                    request.requestedParameter,
-                                    it
-                                )
-                                eventBus.publishParameterUpdate(
-                                    device,
-                                    request.requestedParameter,
-                                    it
-                                )
-                            }
+                        notifyParameterChange(device, request, readResult)
                     }
 
                     is DeviceRequest.ParameterWriteRequest -> {
-                        when (val result = device.setParameter(request.requestedParameter, request.value)) {
-                            is MessageResult.Result -> continue
-                            is MessageResult.Error -> eventBus.publishResolveError(
-                                request.requestId,
-                                device,
-                                request.requestedParameter,
-                                result.error
-                            )
-                        }
+                        notifyParameterChange(device, request, device.setParameter(request.requestedParameter, request.value))
                     }
                 }
             }
         }
+    }
+
+    private fun notifyParameterChange(device: GenericDevice, request: DeviceRequest, result: MessageResult<ParameterValue>) {
+        val parameter = when (request) {
+            is DeviceRequest.ParameterReadRequest -> request.requestedParameter
+            is DeviceRequest.ParameterWriteRequest -> request.requestedParameter
+            else -> return // Future proofing
+        }
+
+        result
+            .onFailure {
+                eventBus.publishResolveError(
+                    request.requestId,
+                    device,
+                    parameter,
+                    it
+                )
+            }
+            .onSuccess {
+                device.parameters[parameter] = it
+                eventBus.publishParameterResolve(
+                    request.requestId,
+                    device,
+                    parameter,
+                    it
+                )
+                eventBus.publishParameterUpdate(
+                    device,
+                    parameter,
+                    it
+                )
+            }
     }
 
     fun add(deviceId: Uuid, request: DeviceRequest) {
