@@ -66,7 +66,7 @@ abstract class GenericDevice @OptIn(ExperimentalUuidApi::class) constructor(
                     .and(
                         prop.parameters.size == 2 && prop.parameters[1].type.isSubtypeOf(typeOf<ParameterValue>())
                     )
-            } ?: return MessageResult.Error("No setter function found for parameter: $parameter")
+            } ?: return MessageResult.Error("No setter found for parameter: $parameter")
 
         return try {
             function.isAccessible = true
@@ -100,7 +100,7 @@ abstract class GenericDevice @OptIn(ExperimentalUuidApi::class) constructor(
                     .filterIsInstance<ParameterGetter>()
                     .any { it.identifier == parameter }
                     .and(prop.returnType.isSubtypeOf(typeOf<MessageResult<*>>()))
-            } ?: return MessageResult.Error("No getter function found for parameter: $parameter")
+            } ?: return MessageResult.Error("No getter found for parameter: $parameter")
 
         return try {
             function.isAccessible = true
