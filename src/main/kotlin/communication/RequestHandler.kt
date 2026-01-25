@@ -1,6 +1,6 @@
 package com.labeq.communication
 
-import com.labeq.device.generic.GenericDevice
+import com.labeq.device.GenericDevice
 import com.labeq.transport.*
 import io.github.davidepianca98.mqtt.packets.mqtt.MQTTPublish
 import kotlinx.coroutines.CoroutineScope
@@ -48,8 +48,8 @@ class RequestHandler @OptIn(DelicateCoroutinesApi::class) constructor(
     private var deviceQueues: HashMap<Uuid, LinkedBlockingQueue<DeviceRequest>> = hashMapOf()
 
     private fun beginDeviceQueueProcessing(device: GenericDevice) {
-        if (!deviceQueues.containsKey(device.uuid)) return
-        val queue = deviceQueues[device.uuid]!!
+        if (!deviceQueues.containsKey(device.metadata.uuid)) return
+        val queue = deviceQueues[device.metadata.uuid]!!
         scope.launch {
             while (true) {
                 when (val request = queue.take()) {

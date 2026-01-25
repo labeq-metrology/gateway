@@ -1,4 +1,4 @@
-package com.labeq.device.generic
+package com.labeq.device
 
 @Target(AnnotationTarget.FUNCTION)
 @MustBeDocumented

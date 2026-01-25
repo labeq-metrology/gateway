@@ -241,7 +241,7 @@ class HP3325Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConn
                 val frequencyRegex = "(?<frequency>[0-9]+\\.?[0-9]*)(?<unit>[a-zA-Z]{2})".toRegex();
                 val match = frequencyRegex.matchEntire(value.value) ?: return MessageResult.Error("Invalid frequency: $value");
 
-                unit = match.groupValues[2]
+                unit = match.groupValues[2].uppercase()
                 if (!FREQUENCY_UNITS.contains(unit)) return MessageResult.Error("Invalid unit: $unit")
                 frequency = match.groupValues[1].toDouble()
             }

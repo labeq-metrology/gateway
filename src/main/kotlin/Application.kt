@@ -6,15 +6,11 @@ import com.labeq.builtin.connections.serial.SerialConnection
 import com.labeq.builtin.connections.serial.SerialFlowControl
 import com.labeq.builtin.connections.serial.SerialParity
 import com.labeq.builtin.connections.serial.SerialStopBits
-import com.labeq.builtin.drivers.hameg.hm107.HM107Device
-import com.labeq.builtin.drivers.hameg.hm107.HM107Driver
 import com.labeq.builtin.drivers.hp.hp3325.HP3325Device
 import com.labeq.builtin.drivers.hp.hp3325.HP3325Driver
-import com.labeq.communication.DeviceRequest
 import com.labeq.config.*
 import com.labeq.config.ServerConfig
-import com.labeq.transport.ParameterValue
-import com.labeq.transport.ReturnType
+import com.labeq.device.DeviceMetadata
 import com.sksamuel.hoplite.ConfigLoaderBuilder
 import com.sksamuel.hoplite.ExperimentalHoplite
 import com.sksamuel.hoplite.addFileSource
@@ -50,7 +46,7 @@ fun Application.module() {
     gateway = LabeqGateway(config)
 
     val generator = HP3325Device(
-        gateway.eventBus, "3325B #1", "Hewlett Packard", Uuid.random(), HP3325Driver(
+        gateway.eventBus, HP3325Driver(
             SerialConnection(
                 SerialConfiguration(
                     port = "COM3",
@@ -61,6 +57,14 @@ fun Application.module() {
                     parity = SerialParity.EVEN
                 )
             )
+        ),
+        DeviceMetadata(
+            Uuid.random(),
+            "F. Generator",
+            "HP 3325B",
+            "Hewlett Packard",
+            "com.labeq.builtin.drivers.hp.hp3325.HP3325Driver",
+            listOf("generator")
         )
     )
 

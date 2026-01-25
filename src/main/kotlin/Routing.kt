@@ -15,13 +15,7 @@ fun Application.configureRouting(gateway: LabeqGateway) {
     routing {
         get("/devices") {
             val deviceList = gateway.devices.values.map {
-                buildJsonObject {
-                    put("uuid", it.uuid.toString())
-                    put("name", it.name)
-                    put("model", it.model)
-                    put("manufacturer", it.manufacturer)
-                    put("driver", it.driver.javaClass.canonicalName)
-                }
+                it.metadata
             }
             call.respondText { Json.encodeToString(deviceList) }
         }

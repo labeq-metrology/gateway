@@ -1,20 +1,16 @@
 package com.labeq.builtin.drivers.hameg.hm107
 
 import com.labeq.communication.MQTTEventBus
-import com.labeq.device.DeviceDriver
-import com.labeq.device.generic.ParameterGetter
-import com.labeq.device.generic.ParameterSetter
-import com.labeq.device.generic.oscilloscope.GenericOscilloscope
+import com.labeq.device.*
 import com.labeq.transport.MessageResult
 import com.labeq.transport.ParameterValue
 import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalUuidApi::class)
 class HM107Device(
-    eventBus: MQTTEventBus, name: String, manufacturer: String, model: String, uuid: Uuid, driver: DeviceDriver
-) : GenericOscilloscope(
-    eventBus, name, manufacturer, model, uuid, driver
+    eventBus: MQTTEventBus, driver: DeviceDriver, data: DeviceMetadata
+) : GenericDevice(
+    eventBus, driver, data
 ) {
 
     private val timebaseDecoder by lazy { TimebaseDecoder(this) }
@@ -103,69 +99,77 @@ class HM107Device(
         const val PARAMETER_HOLDOFF = "scope.holdoff"
     }
 
-    override val parameters: MutableMap<String, ParameterValue> = super.parameters.apply {
-        putAll(
-            arrayOf(
-                PARAMETER_AVG_NUMBER_OF_ACQUISITIONS to ParameterValue.IntegerValue(0),
-                PARAMETER_AVG_NUMBER_OF_ACQUISITIONS_SWITCH to ParameterValue.IntegerValue(0),
-                PARAMETER_WAVEFORM_PREAMBLE to ParameterValue.BytesValue(byteArrayOf()),
-                PARAMETER_TIMEBASE_A to ParameterValue.BytesValue(byteArrayOf()),
-                PARAMETER_TIMEBASE_B to ParameterValue.BytesValue(byteArrayOf()),
-                PARAMETER_TIMEBASE_A_SECONDS to ParameterValue.DoubleValue(0.0),
-                PARAMETER_TIMEBASE_B_SECONDS to ParameterValue.DoubleValue(0.0),
-                PARAMETER_CHANNEL_1_SETTINGS to ParameterValue.BytesValue(byteArrayOf()),
-                PARAMETER_CHANNEL_2_SETTINGS to ParameterValue.BytesValue(byteArrayOf()),
-                PARAMETER_CHANNEL_1_WAVEFORM to ParameterValue.BytesValue(byteArrayOf()),
-                PARAMETER_CHANNEL_2_WAVEFORM to ParameterValue.BytesValue(byteArrayOf()),
-                PARAMETER_CHANNEL_1_WAVEFORM_VOLTAGE to ParameterValue.DoubleArrayValue(doubleArrayOf()),
-                PARAMETER_CHANNEL_2_WAVEFORM_VOLTAGE to ParameterValue.DoubleArrayValue(doubleArrayOf()),
-                PARAMETER_CHANNEL_1_VAR to ParameterValue.IntegerValue(0),
-                PARAMETER_CHANNEL_2_VAR to ParameterValue.IntegerValue(0),
-                PARAMETER_DELAY_POSITION to ParameterValue.IntegerValue(0),
-                PARAMETER_INTENSITY_A to ParameterValue.IntegerValue(0),
-                PARAMETER_INTENSITY_B to ParameterValue.IntegerValue(0),
-                PARAMETER_INTRO to ParameterValue.IntegerValue(0),
-                PARAMETER_TRACE_SEPARATION to ParameterValue.IntegerValue(0),
-                PARAMETER_VERTICAL_MODE to ParameterValue.BytesValue(byteArrayOf()),
-                PARAMETER_HORIZONTAL_MODE to ParameterValue.BytesValue(byteArrayOf()),
-                PARAMETER_LOCAL_LOCK to ParameterValue.IntegerValue(0),
-                PARAMETER_QUICK_START to ParameterValue.IntegerValue(0),
-                PARAMETER_HOLD1_POS to ParameterValue.BytesValue(byteArrayOf()),
-                PARAMETER_HOLD2_POS to ParameterValue.BytesValue(byteArrayOf()),
-                PARAMETER_CURSOR_CFG to ParameterValue.BytesValue(byteArrayOf()),
-                PARAMETER_CURSOR_MODE to ParameterValue.BytesValue(byteArrayOf()),
-                PARAMETER_REF1_POS to ParameterValue.IntegerValue(0),
-                PARAMETER_REF2_POS to ParameterValue.IntegerValue(0),
-                PARAMETER_REF1_DATA to ParameterValue.BytesValue(byteArrayOf()),
-                PARAMETER_REF2_DATA to ParameterValue.BytesValue(byteArrayOf()),
-                PARAMETER_DDF to ParameterValue.BytesValue(byteArrayOf()),
-                PARAMETER_DDF1 to ParameterValue.BytesValue(byteArrayOf()),
-                PARAMETER_PSINT to ParameterValue.IntegerValue(0),
-                PARAMETER_PSCH1 to ParameterValue.IntegerValue(0),
-                PARAMETER_PSCH2 to ParameterValue.IntegerValue(0),
-                PARAMETER_PSY1POS to ParameterValue.IntegerValue(0),
-                PARAMETER_PSY2POS to ParameterValue.IntegerValue(0),
-                PARAMETER_PSTB to ParameterValue.IntegerValue(0),
-                PARAMETER_MANUAL_OPERATION to ParameterValue.IntegerValue(0),
-                PARAMETER_ID to ParameterValue.StringValue(""),
-                PARAMETER_VERSION to ParameterValue.StringValue(""),
-                PARAMETER_BELL to ParameterValue.IntegerValue(0),
-                PARAMETER_CTRL_BEEP to ParameterValue.IntegerValue(0),
-                PARAMETER_ERR_BEEP to ParameterValue.IntegerValue(0),
-                PARAMETER_ERR_MESSAGE to ParameterValue.IntegerValue(0),
-                PARAMETER_READOUT to ParameterValue.IntegerValue(0),
-                PARAMETER_DC_REF to ParameterValue.IntegerValue(0),
-                PARAMETER_MEAN_VALUE to ParameterValue.IntegerValue(0),
-                PARAMETER_TRIGGER_SYMBOL to ParameterValue.IntegerValue(0),
-                PARAMETER_TRIGGER_VALUE to ParameterValue.BytesValue(byteArrayOf()),
-                PARAMETER_X_POSITION to ParameterValue.IntegerValue(0),
-                PARAMETER_Y1_POSITION to ParameterValue.IntegerValue(0),
-                PARAMETER_Y2_POSITION to ParameterValue.IntegerValue(0),
-                PARAMETER_HOLD_WAVEFORM to ParameterValue.IntegerValue(0),
-                PARAMETER_STORE_MODE to ParameterValue.IntegerValue(0),
-                PARAMETER_HOLDOFF to ParameterValue.IntegerValue(0)
-            )
-        )
+    override val parameters: MutableMap<String, ParameterValue> = mutableMapOf(
+        PARAMETER_AVG_NUMBER_OF_ACQUISITIONS to ParameterValue.IntegerValue(0),
+        PARAMETER_AVG_NUMBER_OF_ACQUISITIONS_SWITCH to ParameterValue.IntegerValue(0),
+        PARAMETER_WAVEFORM_PREAMBLE to ParameterValue.BytesValue(byteArrayOf()),
+        PARAMETER_TIMEBASE_A to ParameterValue.BytesValue(byteArrayOf()),
+        PARAMETER_TIMEBASE_B to ParameterValue.BytesValue(byteArrayOf()),
+        PARAMETER_TIMEBASE_A_SECONDS to ParameterValue.DoubleValue(0.0),
+        PARAMETER_TIMEBASE_B_SECONDS to ParameterValue.DoubleValue(0.0),
+        PARAMETER_CHANNEL_1_SETTINGS to ParameterValue.BytesValue(byteArrayOf()),
+        PARAMETER_CHANNEL_2_SETTINGS to ParameterValue.BytesValue(byteArrayOf()),
+        PARAMETER_CHANNEL_1_WAVEFORM to ParameterValue.BytesValue(byteArrayOf()),
+        PARAMETER_CHANNEL_2_WAVEFORM to ParameterValue.BytesValue(byteArrayOf()),
+        PARAMETER_CHANNEL_1_WAVEFORM_VOLTAGE to ParameterValue.DoubleArrayValue(doubleArrayOf()),
+        PARAMETER_CHANNEL_2_WAVEFORM_VOLTAGE to ParameterValue.DoubleArrayValue(doubleArrayOf()),
+        PARAMETER_CHANNEL_1_VAR to ParameterValue.IntegerValue(0),
+        PARAMETER_CHANNEL_2_VAR to ParameterValue.IntegerValue(0),
+        PARAMETER_DELAY_POSITION to ParameterValue.IntegerValue(0),
+        PARAMETER_INTENSITY_A to ParameterValue.IntegerValue(0),
+        PARAMETER_INTENSITY_B to ParameterValue.IntegerValue(0),
+        PARAMETER_INTRO to ParameterValue.IntegerValue(0),
+        PARAMETER_TRACE_SEPARATION to ParameterValue.IntegerValue(0),
+        PARAMETER_VERTICAL_MODE to ParameterValue.BytesValue(byteArrayOf()),
+        PARAMETER_HORIZONTAL_MODE to ParameterValue.BytesValue(byteArrayOf()),
+        PARAMETER_LOCAL_LOCK to ParameterValue.IntegerValue(0),
+        PARAMETER_QUICK_START to ParameterValue.IntegerValue(0),
+        PARAMETER_HOLD1_POS to ParameterValue.BytesValue(byteArrayOf()),
+        PARAMETER_HOLD2_POS to ParameterValue.BytesValue(byteArrayOf()),
+        PARAMETER_CURSOR_CFG to ParameterValue.BytesValue(byteArrayOf()),
+        PARAMETER_CURSOR_MODE to ParameterValue.BytesValue(byteArrayOf()),
+        PARAMETER_REF1_POS to ParameterValue.IntegerValue(0),
+        PARAMETER_REF2_POS to ParameterValue.IntegerValue(0),
+        PARAMETER_REF1_DATA to ParameterValue.BytesValue(byteArrayOf()),
+        PARAMETER_REF2_DATA to ParameterValue.BytesValue(byteArrayOf()),
+        PARAMETER_DDF to ParameterValue.BytesValue(byteArrayOf()),
+        PARAMETER_DDF1 to ParameterValue.BytesValue(byteArrayOf()),
+        PARAMETER_PSINT to ParameterValue.IntegerValue(0),
+        PARAMETER_PSCH1 to ParameterValue.IntegerValue(0),
+        PARAMETER_PSCH2 to ParameterValue.IntegerValue(0),
+        PARAMETER_PSY1POS to ParameterValue.IntegerValue(0),
+        PARAMETER_PSY2POS to ParameterValue.IntegerValue(0),
+        PARAMETER_PSTB to ParameterValue.IntegerValue(0),
+        PARAMETER_MANUAL_OPERATION to ParameterValue.IntegerValue(0),
+        PARAMETER_ID to ParameterValue.StringValue(""),
+        PARAMETER_VERSION to ParameterValue.StringValue(""),
+        PARAMETER_BELL to ParameterValue.IntegerValue(0),
+        PARAMETER_CTRL_BEEP to ParameterValue.IntegerValue(0),
+        PARAMETER_ERR_BEEP to ParameterValue.IntegerValue(0),
+        PARAMETER_ERR_MESSAGE to ParameterValue.IntegerValue(0),
+        PARAMETER_READOUT to ParameterValue.IntegerValue(0),
+        PARAMETER_DC_REF to ParameterValue.IntegerValue(0),
+        PARAMETER_MEAN_VALUE to ParameterValue.IntegerValue(0),
+        PARAMETER_TRIGGER_SYMBOL to ParameterValue.IntegerValue(0),
+        PARAMETER_TRIGGER_VALUE to ParameterValue.BytesValue(byteArrayOf()),
+        PARAMETER_X_POSITION to ParameterValue.IntegerValue(0),
+        PARAMETER_Y1_POSITION to ParameterValue.IntegerValue(0),
+        PARAMETER_Y2_POSITION to ParameterValue.IntegerValue(0),
+        PARAMETER_HOLD_WAVEFORM to ParameterValue.IntegerValue(0),
+        PARAMETER_STORE_MODE to ParameterValue.IntegerValue(0),
+        PARAMETER_HOLDOFF to ParameterValue.IntegerValue(0)
+    )
+
+    override fun connect(): Boolean {
+        TODO("Not yet implemented")
+    }
+
+    override fun disconnect(): Boolean {
+        TODO("Not yet implemented")
+    }
+
+    override suspend fun identify(): MessageResult<String> {
+        TODO("Not yet implemented")
     }
 
     // Averaging
@@ -642,7 +646,7 @@ class HM107Device(
         driver.writeParameter(PARAMETER_STORE_MODE, value)
 
     @ParameterSetter(PARAMETER_AUTOSET)
-    override suspend fun autoset(@Suppress("UNUSED_PARAMETER") value: ParameterValue): MessageResult<ParameterValue> =
+    suspend fun autoset(@Suppress("UNUSED_PARAMETER") value: ParameterValue): MessageResult<ParameterValue> =
         driver.writeParameter(PARAMETER_AUTOSET, value)
 
     @ParameterSetter(PARAMETER_RESET)

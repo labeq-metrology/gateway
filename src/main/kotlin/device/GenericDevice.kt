@@ -1,15 +1,11 @@
-package com.labeq.device.generic
+package com.labeq.device
 
 import com.labeq.communication.MQTTEventBus
-import com.labeq.device.DeviceDriver
 import com.labeq.transport.MessageResult
 import com.labeq.transport.ParameterValue
 import com.labeq.transport.ReturnType
 import com.labeq.transport.getOrNull
-import io.ktor.util.logging.*
-import kotlinx.serialization.Contextual
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.Transient
+import io.ktor.util.logging.Logger
 import org.slf4j.LoggerFactory
 import kotlin.reflect.full.callSuspend
 import kotlin.reflect.full.isSubtypeOf
@@ -17,18 +13,14 @@ import kotlin.reflect.full.memberFunctions
 import kotlin.reflect.jvm.isAccessible
 import kotlin.reflect.typeOf
 import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalUuidApi::class)
 abstract class GenericDevice @OptIn(ExperimentalUuidApi::class) constructor(
     val eventBus: MQTTEventBus,
-    val name: String,
-    val manufacturer: String,
-    var model: String,
-    val uuid: Uuid,
-    val driver: DeviceDriver
+    val driver: DeviceDriver,
+    val metadata: DeviceMetadata
 ) {
-    protected var logger: Logger = LoggerFactory.getLogger("$name@$uuid");
+    protected var logger: Logger = LoggerFactory.getLogger("${metadata.name}@${metadata.uuid}");
 
     /**
      * Abstract map of parameters associated with the device.
@@ -172,4 +164,6 @@ abstract class GenericDevice @OptIn(ExperimentalUuidApi::class) constructor(
      * @return `true` if the disconnection was successful, `false` otherwise.
      */
     abstract fun disconnect(): Boolean
-};
+
+    abstract suspend fun identify(): MessageResult<String>
+}

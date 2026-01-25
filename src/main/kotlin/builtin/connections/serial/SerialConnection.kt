@@ -4,6 +4,8 @@ import com.fazecast.jSerialComm.SerialPort
 import com.labeq.transport.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import java.nio.ByteBuffer
@@ -16,6 +18,7 @@ class SerialConnection(connectionConfiguration: ConnectionConfiguration) : Devic
     private val log = LoggerFactory.getLogger("SerialConnection@${this.hashCode()}")
     override var status = DeviceConnectionStatus.DISCONNECTED
     private val requestCounter = AtomicInteger(0)
+    private val requestLock = Mutex()
 
     init {
         requireNotNull(configuration) { "Serial configuration cannot be null" }
@@ -33,6 +36,10 @@ class SerialConnection(connectionConfiguration: ConnectionConfiguration) : Devic
                     log.error("Failed to open port ${serialConfiguration.port}")
                     return@withContext false
                 }
+
+                // Clear buffers immediately after opening
+                flushIOBuffers()
+
                 setFlowControl(
                     when(serialConfiguration.flowControl) {
                         SerialFlowControl.NONE -> SerialPort.FLOW_CONTROL_DISABLED
@@ -58,6 +65,10 @@ class SerialConnection(connectionConfiguration: ConnectionConfiguration) : Devic
                     }
                 )
             }
+
+            // Give the port a moment to stabilize
+            delay(50)
+
             status = DeviceConnectionStatus.CONNECTED
             true
         } catch (e: Exception) {
@@ -80,7 +91,9 @@ class SerialConnection(connectionConfiguration: ConnectionConfiguration) : Devic
     override suspend fun send(message: String): MessageResult<Unit> = withContext(Dispatchers.IO) {
         try {
             val port = port ?: return@withContext MessageResult.Error("Port not open")
-            port.outputStream.use { it.write(message.toByteArray()); it.flush() }
+            val data = message.toByteArray()
+            port.outputStream.write(data)
+            port.outputStream.flush()
             MessageResult.Result(Unit)
         } catch (e: Exception) {
             MessageResult.Error("Failed to send string: ${e.message}")
@@ -90,7 +103,8 @@ class SerialConnection(connectionConfiguration: ConnectionConfiguration) : Devic
     override suspend fun send(message: ByteArray): MessageResult<Unit> = withContext(Dispatchers.IO) {
         try {
             val port = port ?: return@withContext MessageResult.Error("Port not open")
-            port.outputStream.use { it.write(message); it.flush() }
+            port.outputStream.write(message)
+            port.outputStream.flush()
             MessageResult.Result(Unit)
         } catch (e: Exception) {
             MessageResult.Error("Failed to send bytes: ${e.message}")
@@ -120,23 +134,36 @@ class SerialConnection(connectionConfiguration: ConnectionConfiguration) : Devic
         inputWasString: Boolean
     ): MessageResult<ParameterValue> {
         val requestId = requestCounter.incrementAndGet()
-        return withContext(Dispatchers.IO) {
-            try {
-                val port = port ?: return@withContext MessageResult.Error("Port not open")
-                log.debug("[Request $requestId] Sending ${data.size} bytes")
-                log.debug("[Request $requestId] Sending message: ${data.decodeToString()}")
-                port.outputStream.use { it.write(data); it.flush() }
 
-                val response = if (expectedBytes == -1) {
-                    readResponseUntilStopSequence(port, requestId)
-                } else {
-                    readResponse(port, expectedBytes, requestId)
+        // Use mutex to prevent concurrent access
+        return requestLock.withLock {
+            withContext(Dispatchers.IO) {
+                try {
+                    val port = port ?: return@withContext MessageResult.Error("Port not open")
+
+                    // Flush buffers BEFORE sending to clear any stale data
+                    port.flushIOBuffers()
+                    delay(10) // Brief delay to ensure flush completes
+
+                    log.debug("[Request $requestId] Sending ${data.size} bytes")
+                    log.debug("[Request $requestId] Sending message: ${data.decodeToString()}")
+
+                    // Write directly - don't use 'use' block as we need to keep stream open
+                    port.outputStream.write(data)
+                    port.outputStream.flush()
+
+                    val response = if (expectedBytes == -1) {
+                        readResponseUntilStopSequence(port, requestId)
+                    } else {
+                        readResponse(port, expectedBytes, requestId)
+                    }
+
+                    val transformed = transformResponse(response, returnType, inputWasString)
+                    MessageResult.Result(transformed)
+                } catch (e: Exception) {
+                    log.error("[Request $requestId] Error: ${e.message}")
+                    MessageResult.Error("Communication error: ${e.message}")
                 }
-                val transformed = transformResponse(response, returnType, inputWasString)
-                MessageResult.Result(transformed)
-            } catch (e: Exception) {
-                log.error("[Request $requestId] Error: ${e.message}")
-                MessageResult.Error("Communication error: ${e.message}")
             }
         }
     }
@@ -153,31 +180,33 @@ class SerialConnection(connectionConfiguration: ConnectionConfiguration) : Devic
 
         log.debug("[Request $requestId] Expecting $expectedBytes bytes with timeout $timeoutMs ms")
 
-        port.inputStream.use { input ->
-            while (totalRead < expectedBytes) {
-                val remainingTime = timeoutMs - (System.currentTimeMillis() - startTime)
-                if (remainingTime <= 0) {
-                    throw Exception("Read timeout after $timeoutMs ms")
-                }
+        while (totalRead < expectedBytes) {
+            val remainingTime = timeoutMs - (System.currentTimeMillis() - startTime)
+            if (remainingTime <= 0) {
+                throw Exception("Read timeout after $timeoutMs ms (got $totalRead/$expectedBytes bytes)")
+            }
 
-                val available = input.available()
-                if (available > 0) {
-                    val read = input.read(
-                        buffer,
-                        totalRead,
-                        available.coerceAtMost(expectedBytes - totalRead)
-                    )
-                    if (read > 0) {
-                        totalRead += read
-                        log.debug("[Request $requestId] Read $read bytes (total $totalRead/$expectedBytes)")
-                    }
-                } else {
-                    delay(10)
+            val available = port.bytesAvailable()
+            if (available > 0) {
+                val toRead = available.coerceAtMost(expectedBytes - totalRead)
+                val read = port.inputStream.read(buffer, totalRead, toRead)
+                if (read > 0) {
+                    totalRead += read
+                    log.debug("[Request $requestId] Read $read bytes (total $totalRead/$expectedBytes)")
                 }
+            } else {
+                delay(10)
             }
         }
-        port.flushIOBuffers() // Just in case we leave something behind
-        buffer.copyOf(totalRead)
+
+        // Flush any extra data that might have arrived
+        val remaining = port.bytesAvailable()
+        if (remaining > 0) {
+            log.warn("[Request $requestId] Flushing $remaining unexpected extra bytes")
+            port.flushIOBuffers()
+        }
+
+        buffer
     }
 
     private suspend fun readResponseUntilStopSequence(
@@ -187,47 +216,45 @@ class SerialConnection(connectionConfiguration: ConnectionConfiguration) : Devic
         val buffer = ByteArray(1024) // Enough to hold small replies
         var totalRead = 0
         val startTime = System.currentTimeMillis()
-        val timeoutMs = 3000L // up to 2 seconds for full response
+        val timeoutMs = 3000L // up to 3 seconds for full response
 
         log.debug("[Request $requestId] Reading until ${serialConfiguration.stopSequence.decodeToString()} with timeout $timeoutMs ms")
 
-        port.inputStream.use { input ->
-            while (true) {
-                val elapsed = System.currentTimeMillis() - startTime
-                if (elapsed > timeoutMs) {
-                    throw Exception("Timeout waiting for ${serialConfiguration.stopSequence.decodeToString()} (after $timeoutMs ms)")
-                }
+        while (true) {
+            val elapsed = System.currentTimeMillis() - startTime
+            if (elapsed > timeoutMs) {
+                throw Exception("Timeout waiting for ${serialConfiguration.stopSequence.decodeToString()} (after $timeoutMs ms)")
+            }
 
-                val available = input.available()
-                if (available > 0) {
-                    val read = input.read(buffer, totalRead, 1) // read byte-by-byte
-                    if (read > 0) {
-                        totalRead += read
-                        if (totalRead >= serialConfiguration.stopSequence.size) {
-                            var matches = true
-                            for (i in serialConfiguration.stopSequence.indices) {
-                                if (buffer[totalRead - serialConfiguration.stopSequence.size + i] != serialConfiguration.stopSequence[i]) {
-                                    matches = false
-                                    break
-                                }
-                            }
-                            if (matches) {
-                                break // Stop sequence reached
+            val available = port.bytesAvailable()
+            if (available > 0) {
+                // Read byte-by-byte to detect stop sequence
+                val read = port.inputStream.read(buffer, totalRead, 1)
+                if (read > 0) {
+                    totalRead += read
+                    if (totalRead >= serialConfiguration.stopSequence.size) {
+                        var matches = true
+                        for (i in serialConfiguration.stopSequence.indices) {
+                            if (buffer[totalRead - serialConfiguration.stopSequence.size + i] != serialConfiguration.stopSequence[i]) {
+                                matches = false
+                                break
                             }
                         }
+                        if (matches) {
+                            break // Stop sequence reached
+                        }
                     }
-                } else {
-                    delay(10)
                 }
+            } else {
+                delay(10)
             }
         }
 
-        // Flush any remaining bytes after closing the use block
+        // Flush any remaining bytes after stop sequence
         val remaining = port.bytesAvailable()
         if (remaining > 0) {
             log.debug("[Request $requestId] Flushing $remaining remaining bytes after stop sequence")
-            val flushBuffer = ByteArray(remaining)
-            port.inputStream.use { it.readNBytes(flushBuffer, 0, remaining) }
+            port.flushIOBuffers()
         }
 
         buffer.copyOf(totalRead)

@@ -1,7 +1,7 @@
 package com.labeq.communication
 
 import com.labeq.config.MQTTConfig
-import com.labeq.device.generic.GenericDevice
+import com.labeq.device.GenericDevice
 import com.labeq.transport.ParameterValue
 import io.github.davidepianca98.mqtt.broker.Broker
 import io.github.davidepianca98.mqtt.broker.interfaces.PacketInterceptor
@@ -52,7 +52,7 @@ class MQTTEventBus(configuration: MQTTConfig, val devices: MutableMap<Uuid, Gene
     fun publishParameterUpdate(device: GenericDevice, parameter: String, value: ParameterValue) {
         val topic = DEVICE_PARAMETER_UPDATE_TOPIC.expandPlaceholders(
             mapOf(
-                "uuid" to device.uuid.toString(),
+                "uuid" to device.metadata.uuid.toString(),
                 "parameter" to parameter
             )
         )
@@ -94,7 +94,7 @@ class MQTTEventBus(configuration: MQTTConfig, val devices: MutableMap<Uuid, Gene
         }
         val topic = DEVICE_PARAMETER_REQUEST_RESOLVE.expandPlaceholders(
             mapOf(
-                "uuid" to device.uuid.toString(),
+                "uuid" to device.metadata.uuid.toString(),
                 "request" to requestId.toString()
             )
         )
@@ -130,7 +130,7 @@ class MQTTEventBus(configuration: MQTTConfig, val devices: MutableMap<Uuid, Gene
     fun publishResolveError(requestId: Uuid, device: GenericDevice, parameter: String, error: String) {
         val topic = DEVICE_PARAMETER_REQUEST_RESOLVE.expandPlaceholders(
             mapOf(
-                "uuid" to device.uuid.toString(),
+                "uuid" to device.metadata.uuid.toString(),
                 "request" to requestId.toString()
             )
         )

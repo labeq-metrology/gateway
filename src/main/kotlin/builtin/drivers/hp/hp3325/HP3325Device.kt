@@ -1,25 +1,21 @@
 package com.labeq.builtin.drivers.hp.hp3325
 
-import com.labeq.communication.DeviceRequest
 import com.labeq.communication.MQTTEventBus
+import com.labeq.device.DeviceMetadata
 import com.labeq.device.DeviceDriver
-import com.labeq.device.generic.GenericDevice
-import com.labeq.device.generic.ParameterGetter
-import com.labeq.device.generic.ParameterSetter
+import com.labeq.device.GenericDevice
+import com.labeq.device.ParameterGetter
+import com.labeq.device.ParameterSetter
 import com.labeq.transport.MessageResult
 import com.labeq.transport.ParameterValue
-import com.labeq.transport.ReturnType
 import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalUuidApi::class)
 class HP3325Device(
     eventBus: MQTTEventBus,
-    name: String,
-    manufacturer: String,
-    uuid: Uuid,
     driver: DeviceDriver,
-) : GenericDevice(eventBus, name, manufacturer, "HP3325", uuid, driver) {
+    data: DeviceMetadata
+) : GenericDevice(eventBus, driver, data) {
 
     companion object {
         // Signal generation
@@ -151,6 +147,10 @@ class HP3325Device(
     // -----------------------------
     override fun connect(): Boolean = driver.connect()
     override fun disconnect(): Boolean = driver.disconnect()
+    override suspend fun identify(): MessageResult<String> {
+        // FIXME
+        return MessageResult.Result("HP3325")
+    }
 
     @ParameterGetter(PARAMETER_GENERATOR_AMPLITUDE)
     suspend fun getGeneratorAmplitude(): MessageResult<ParameterValue> = driver.queryParameter(PARAMETER_GENERATOR_AMPLITUDE)
