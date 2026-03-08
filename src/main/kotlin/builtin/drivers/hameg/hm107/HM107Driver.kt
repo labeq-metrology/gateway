@@ -91,11 +91,6 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
         const val RDREF2 = "RDREF2"
     }
 
-
-    // ============================================================
-    // DeviceDriver Interface Implementation
-    // ============================================================
-
     override suspend fun queryParameter(parameter: String, returnType: ReturnType): MessageResult<ParameterValue> {
         return when (parameter) {
             HM107Device.PARAMETER_TIMEBASE_A -> queryTimebase("A")
@@ -253,10 +248,6 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
         }
     }
 
-    // ============================================================
-    // Connection Management
-    // ============================================================
-
     private suspend fun resetRemote(): Boolean {
         val result = connection.query(REMOTE_ENABLE, -1)
         return when (result) {
@@ -273,10 +264,6 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
         }
     }
 
-    // ============================================================
-    // Basic Commands (Autoset, Reset)
-    // ============================================================
-
     private suspend fun autoset(): MessageResult<ParameterValue> {
         if (!connection.open()) return MessageResult.Error("Connection closed!")
         connection.query(AUTOSET, -1).onSuccessAsync { return MessageResult.Result(ParameterValue.IntegerValue(1)) }
@@ -288,10 +275,6 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
         connection.query(RES, -1).onSuccessAsync { return MessageResult.Result(ParameterValue.IntegerValue(1)) }
         return MessageResult.Error("Reset failed")
     }
-
-    // ============================================================
-    // Device Identification
-    // ============================================================
 
     private suspend fun queryId(): MessageResult<ParameterValue.StringValue> {
         if (!connection.open()) return MessageResult.Error("Connection closed!")
@@ -308,10 +291,6 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
         }
         return MessageResult.Error("Invalid response")
     }
-
-    // ============================================================
-    // Acquisition & Averaging
-    // ============================================================
 
     private suspend fun queryAvgAcquisitions(): MessageResult<ParameterValue.IntegerValue> {
         if (!connection.open()) return MessageResult.Error("Connection closed!")
@@ -370,10 +349,6 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
         connection.query(cmd, -1)
         return queryTimebase(id)
     }
-
-    // ============================================================
-    // Channel Settings & Configuration
-    // ============================================================
 
     private suspend fun queryChannelSettings(channel: Int): MessageResult<ParameterValue.BytesValue> {
         if (!connection.open()) return MessageResult.Error("Connection closed!")
@@ -477,7 +452,7 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
 
     private suspend fun queryChannelOn(channel: Int): MessageResult<ParameterValue.IntegerValue> {
         val settingsRv = queryChannelSettings(channel).getOrNull() ?: return MessageResult.Error("No response")
-        if (settingsRv !is ParameterValue.BytesValue || settingsRv.value.isEmpty())
+        if (settingsRv.value.isEmpty())
             return MessageResult.Error("Invalid data")
         val settings = ChannelSettings.fromByte(settingsRv.value.first())
         return MessageResult.Result(ParameterValue.IntegerValue(if (settings.on) 1 else 0))
@@ -485,7 +460,7 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
 
     private suspend fun setChannelOn(channel: Int, value: ParameterValue.IntegerValue): MessageResult<ParameterValue> {
         val settingsRv = queryChannelSettings(channel).getOrNull() ?: return MessageResult.Error("No response")
-        if (settingsRv !is ParameterValue.BytesValue || settingsRv.value.isEmpty())
+        if (settingsRv.value.isEmpty())
             return MessageResult.Error("Invalid data")
         val current = ChannelSettings.fromByte(settingsRv.value.first())
         val updated = current.copy(on = value.value != 0)
@@ -494,7 +469,7 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
 
     private suspend fun queryChannelVoltPerDiv(channel: Int): MessageResult<ParameterValue.DoubleValue> {
         val settingsRv = queryChannelSettings(channel).getOrNull() ?: return MessageResult.Error("No response")
-        if (settingsRv !is ParameterValue.BytesValue || settingsRv.value.isEmpty())
+        if (settingsRv.value.isEmpty())
             return MessageResult.Error("Invalid data")
         val settings = ChannelSettings.fromByte(settingsRv.value.first())
         return MessageResult.Result(ParameterValue.DoubleValue(settings.voltPerDivMapped))
@@ -515,10 +490,6 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
         )
         return setChannelSettings(channel, ParameterValue.BytesValue(byteArrayOf(ChannelSettings.toByte(updated))))
     }
-
-    // ============================================================
-    // Waveform Acquisition
-    // ============================================================
 
     private suspend fun queryWaveformPreamble(): MessageResult<ParameterValue.BytesValue> {
         if (!connection.open()) return MessageResult.Error("Connection closed!")
@@ -546,10 +517,6 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
         }
         return MessageResult.Error("Invalid response")
     }
-
-    // ============================================================
-    // Beep & Control Settings
-    // ============================================================
 
     private suspend fun setBell(value: ParameterValue.IntegerValue): MessageResult<ParameterValue> {
         if (!connection.open()) return MessageResult.Error("Connection closed!")
@@ -615,10 +582,6 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
             .onSuccessAsync { return MessageResult.Result(ParameterValue.IntegerValue(value.value)) }
         return MessageResult.Error("Failed to set ERRMSGE")
     }
-
-    // ============================================================
-    // Display Settings
-    // ============================================================
 
     private suspend fun queryReadout(): MessageResult<ParameterValue.IntegerValue> {
         if (!connection.open()) return MessageResult.Error("Connection closed!")
@@ -730,10 +693,6 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
         return MessageResult.Error("Invalid response")
     }
 
-    // ============================================================
-    // Trigger Settings
-    // ============================================================
-
     private suspend fun queryTriggerSymbol(): MessageResult<ParameterValue.IntegerValue> {
         if (!connection.open()) return MessageResult.Error("Connection closed!")
         connection.query("$TRGS?", -1, ReturnType.String).onSuccessAsync {
@@ -760,10 +719,6 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
         }
         return MessageResult.Error("Invalid response")
     }
-
-    // ============================================================
-    // Position & Timebase Settings
-    // ============================================================
 
     private suspend fun queryXPosition(): MessageResult<ParameterValue.IntegerValue> {
         if (!connection.open()) return MessageResult.Error("Connection closed!")
@@ -833,10 +788,6 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
         return MessageResult.Error("Invalid response")
     }
 
-    // ============================================================
-    // Vertical & Horizontal Modes
-    // ============================================================
-
     private suspend fun queryVerticalMode(): MessageResult<ParameterValue.BytesValue> {
         if (!connection.open()) return MessageResult.Error("Connection closed!")
         connection.query("$VERMODE?", 4, ReturnType.Bytes).onSuccessAsync {
@@ -868,10 +819,6 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
         connection.query(data, -1).onSuccessAsync { return queryHorizontalMode() }
         return MessageResult.Error("Invalid response")
     }
-
-    // ============================================================
-    // Waveform Hold & Store
-    // ============================================================
 
     private suspend fun queryHoldWaveform(): MessageResult<ParameterValue.IntegerValue> {
         if (!connection.open()) return MessageResult.Error("Connection closed!")
@@ -946,10 +893,6 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
         return MessageResult.Error("Invalid response")
     }
 
-    // ============================================================
-    // Cursor Settings
-    // ============================================================
-
     private suspend fun queryCursorCfg(): MessageResult<ParameterValue.BytesValue> {
         if (!connection.open()) return MessageResult.Error("Connection closed!")
         connection.query("$CURCFG?", 6, ReturnType.Bytes).onSuccessAsync {
@@ -981,10 +924,6 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
         connection.query(bytes, -1).onSuccessAsync { return queryCursorMode() }
         return MessageResult.Error("Invalid response")
     }
-
-    // ============================================================
-    // Reference Waveforms
-    // ============================================================
 
     private suspend fun queryRef1Pos(): MessageResult<ParameterValue.IntegerValue> {
         if (!connection.open()) return MessageResult.Error("Connection closed!")
@@ -1060,10 +999,6 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
         return MessageResult.Error("Invalid response")
     }
 
-    // ============================================================
-    // DDF Settings
-    // ============================================================
-
     private suspend fun queryDDF(): MessageResult<ParameterValue.BytesValue> {
         if (!connection.open()) return MessageResult.Error("Connection closed!")
         connection.query("$DDF?", 10, ReturnType.Bytes).onSuccessAsync {
@@ -1095,10 +1030,6 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
         connection.query(bytes, -1).onSuccessAsync { return queryDDF1() }
         return MessageResult.Error("Invalid response")
     }
-
-    // ============================================================
-    // Plotter Settings
-    // ============================================================
 
     private suspend fun queryPsInt(): MessageResult<ParameterValue.IntegerValue> {
         if (!connection.open()) return MessageResult.Error("Connection closed!")
@@ -1208,10 +1139,6 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
         return MessageResult.Error("Invalid response")
     }
 
-    // ============================================================
-    // Local Lock & Quick Start
-    // ============================================================
-
     private suspend fun queryLocalLock(): MessageResult<ParameterValue.IntegerValue> {
         if (!connection.open()) return MessageResult.Error("Connection closed!")
         connection.query("$LK?", -1, ReturnType.String).onSuccessAsync {
@@ -1246,10 +1173,6 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
         return MessageResult.Error("Invalid response")
     }
 
-    // ============================================================
-    // Manual Operation
-    // ============================================================
-
     private suspend fun queryManualOperation(): MessageResult<ParameterValue.IntegerValue> {
         if (!connection.open()) return MessageResult.Error("Connection closed!")
         connection.query("$FCCMD?", -1, ReturnType.String).onSuccessAsync {
@@ -1260,10 +1183,6 @@ class HM107Driver(override val connection: DeviceConnection) : DeviceDriver(conn
         }
         return MessageResult.Error("Invalid response")
     }
-
-    // ============================================================
-    // Helper Functions
-    // ============================================================
 
     private fun wordToBytes(value: Int): ByteArray {
         val v = if (value < 0) 65536 + value else value

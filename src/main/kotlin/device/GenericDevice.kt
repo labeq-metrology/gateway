@@ -101,6 +101,7 @@ abstract class GenericDevice @OptIn(ExperimentalUuidApi::class) constructor(
                 is MessageResult.Result -> {
                     val value = result.getOrNull() as ParameterValue
                     notifyParameterUpdate(parameter, value)
+                    parameters[parameter] = value
                     when (returnType) {
                         ReturnType.String, ReturnType.SameAsInput -> MessageResult.Result(value as ParameterValue.StringValue)
                         ReturnType.Bytes -> MessageResult.Result(value as ParameterValue.BytesValue)

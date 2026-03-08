@@ -1,5 +1,10 @@
 package com.labeq.transport
 
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonClassDiscriminator
+
 /**
  * Represents the result of an operation, encapsulating either a successful value of type `T`
  * or an error message.
@@ -151,10 +156,21 @@ sealed class ReturnType {
  * Represents a parameter value that can be used in interactions with a device driver.
  * This sealed class serves as a base type for concrete implementations of parameter values.
  */
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+@JsonClassDiscriminator("paramType")
 sealed class ParameterValue {
+    @Serializable
+    @SerialName("StringValue")
     data class StringValue(val value: String) : ParameterValue()
+    @Serializable
+    @SerialName("IntegerValue")
     data class IntegerValue(val value: Int) : ParameterValue()
+    @Serializable
+    @SerialName("DoubleValue")
     data class DoubleValue(val value: Double) : ParameterValue()
+    @Serializable
+    @SerialName("BytesValue")
     data class BytesValue(val value: ByteArray) : ParameterValue() {
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
@@ -169,6 +185,8 @@ sealed class ParameterValue {
             return value.contentHashCode()
         }
     }
+    @Serializable
+    @SerialName("IntegerArrayValue")
     data class IntegerArrayValue(val value: IntArray) : ParameterValue() {
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
@@ -182,6 +200,8 @@ sealed class ParameterValue {
         }
     }
 
+    @Serializable
+    @SerialName("DoubleArrayValue")
     data class DoubleArrayValue(val value: DoubleArray) : ParameterValue() {
         override fun equals(other: Any?): Boolean {
             if (this === other) return true

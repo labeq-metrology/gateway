@@ -189,7 +189,7 @@ class HM107Device(
     suspend fun setAverageNumberOfAcquisitionsSwitch(value: ParameterValue): MessageResult<ParameterValue> =
         driver.writeParameter(PARAMETER_AVG_NUMBER_OF_ACQUISITIONS_SWITCH, value)
 
-    // ─────────────────────────────── TIMEBASE ───────────────────────────────
+    // Timebase
 
     @ParameterGetter(PARAMETER_TIMEBASE_A_SECONDS)
     suspend fun getTimebaseASeconds(): MessageResult<ParameterValue> {

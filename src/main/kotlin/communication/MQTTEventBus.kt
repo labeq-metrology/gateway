@@ -11,7 +11,9 @@ import io.github.davidepianca98.mqtt.packets.mqtt.MQTTConnect
 import io.github.davidepianca98.mqtt.packets.mqtt.MQTTPublish
 import io.github.davidepianca98.mqtt.packets.mqttv5.MQTT5Properties
 import io.github.davidepianca98.toBase64
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.put
 import org.slf4j.LoggerFactory
 import kotlin.concurrent.thread
@@ -26,8 +28,8 @@ class MQTTEventBus(configuration: MQTTConfig, val devices: MutableMap<Uuid, Gene
 
         // Device topics
         val DEVICE_PARAMETER_UPDATE_TOPIC = "$DEVICE_TOPIC/{uuid}/parameters/{parameter}/update"
-        val DEVICE_PARAMETER_READ_TOPIC   = "$DEVICE_TOPIC/{uuid}/parameters/{parameter}/read"
-        val DEVICE_PARAMETER_WRITE_TOPIC   = "$DEVICE_TOPIC/{uuid}/parameters/{parameter}/write"
+        val DEVICE_PARAMETER_READ_TOPIC = "$DEVICE_TOPIC/{uuid}/parameters/{parameter}/read"
+        val DEVICE_PARAMETER_WRITE_TOPIC = "$DEVICE_TOPIC/{uuid}/parameters/{parameter}/write"
         val DEVICE_PARAMETER_REQUEST_RESOLVE = "$DEVICE_TOPIC/{uuid}/requests/{request}/resolve"
     }
 
@@ -70,17 +72,9 @@ class MQTTEventBus(configuration: MQTTConfig, val devices: MutableMap<Uuid, Gene
 
         publish(
             topic, buildJsonObject {
-                put("newValue", transformedValue)
+                put("newValue", Json.encodeToJsonElement(value))
             }.toString().toByteArray().toUByteArray(),
-            true,
-            when (value) {
-                is ParameterValue.IntegerValue -> "integer"
-                is ParameterValue.BytesValue -> "bytes"
-                is ParameterValue.StringValue -> "string"
-                is ParameterValue.DoubleValue -> "double"
-                is ParameterValue.IntegerArrayValue -> "integer_array"
-                is ParameterValue.DoubleArrayValue -> "double_array"
-            }
+            true
         )
     }
 
@@ -92,6 +86,7 @@ class MQTTEventBus(configuration: MQTTConfig, val devices: MutableMap<Uuid, Gene
                 }
             }
         }
+
         val topic = DEVICE_PARAMETER_REQUEST_RESOLVE.expandPlaceholders(
             mapOf(
                 "uuid" to device.metadata.uuid.toString(),
@@ -113,17 +108,9 @@ class MQTTEventBus(configuration: MQTTConfig, val devices: MutableMap<Uuid, Gene
             topic, buildJsonObject {
                 put("request", requestId.toString())
                 put("parameter", parameter)
-                put("resolvedValue", transformedValue)
+                put("resolvedValue", Json.encodeToJsonElement(value))
             }.toString().toByteArray().toUByteArray(),
-            false,
-            when (value) {
-                is ParameterValue.IntegerValue -> "integer"
-                is ParameterValue.BytesValue -> "bytes"
-                is ParameterValue.StringValue -> "string"
-                is ParameterValue.DoubleValue -> "double"
-                is ParameterValue.IntegerArrayValue -> "integer_array"
-                is ParameterValue.DoubleArrayValue -> "double_array"
-            }
+            false
         )
     }
 
