@@ -6,7 +6,7 @@ import kotlinx.coroutines.runBlocking
 
 class HP3325Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConnection) {
     private companion object {
-        val FREQUENCY_UNITS = listOf<String>("HZ", "KH", "MH");
+        val FREQUENCY_UNITS = listOf<String>("HZ", "KH", "MH")
 
         const val INTERROGATE = "?"
 
@@ -234,28 +234,28 @@ class HP3325Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConn
     }
 
     private suspend fun writeFrequency(value: ParameterValue): MessageResult<ParameterValue.StringValue> {
-        var frequency: Double;
-        var unit: String;
+        var frequency: Double
+        var unit: String
         when (value) {
             is ParameterValue.StringValue -> {
-                val frequencyRegex = "(?<frequency>[0-9]+\\.?[0-9]*)(?<unit>[a-zA-Z]{2})".toRegex();
-                val match = frequencyRegex.matchEntire(value.value) ?: return MessageResult.Error("Invalid frequency: $value");
+                val frequencyRegex = "(?<frequency>[0-9]+\\.?[0-9]*)(?<unit>[a-zA-Z]{2})".toRegex()
+                val match = frequencyRegex.matchEntire(value.value) ?: return MessageResult.Error("Invalid frequency: $value")
 
                 unit = match.groupValues[2].uppercase()
                 if (!FREQUENCY_UNITS.contains(unit)) return MessageResult.Error("Invalid unit: $unit")
                 frequency = match.groupValues[1].toDouble()
             }
             is ParameterValue.DoubleValue -> {
-                frequency = value.value;
-                unit = "HZ";
+                frequency = value.value
+                unit = "HZ"
             }
             else -> return MessageResult.Error("Invalid content type")
         }
 
         val normalizedFrequency = when (unit) {
-            "HZ" -> frequency;
-            "KH" -> frequency * 1000;
-            "MH" -> frequency * 1000000;
+            "HZ" -> frequency
+            "KH" -> frequency * 1000
+            "MH" -> frequency * 1000000
             else -> return MessageResult.Error("Invalid unit: $unit")
         }
 
