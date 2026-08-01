@@ -36,7 +36,7 @@ sealed class RequestDTO {
     data class ReadRequestDTO(val requestId: Uuid, val returnType: String) : RequestDTO()
 
     @Serializable
-    data class WriteRequestDTO(val requestId: Uuid, val value: String, val contentType: String) : RequestDTO()
+    data class WriteRequestDTO(val requestId: Uuid, val value: ParameterValue, val contentType: String) : RequestDTO()
 }
 
 @OptIn(ExperimentalUuidApi::class, ExperimentalUnsignedTypes::class)
@@ -117,6 +117,7 @@ class RequestHandler @OptIn(DelicateCoroutinesApi::class) constructor(
         return deviceQueues[deviceId]?.removeIf { it.requestId == requestId } ?: false
     }
 
+    private val writeJson = Json { classDiscriminator = "paramType" }
     fun handlePublish(packet: MQTTPublish) {
         val readRequestRegex = MQTTEventBus.DEVICE_PARAMETER_READ_TOPIC
             .replace("{uuid}", "(?<uuid>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})")
@@ -128,6 +129,7 @@ class RequestHandler @OptIn(DelicateCoroutinesApi::class) constructor(
             .replace("{parameter}", "(?<parameter>[^/]+)")
             .toRegex()
 
+        println(writeRequestRegex matches packet.topicName)
         if (readRequestRegex matches packet.topicName) {
             val matched = readRequestRegex.matchEntire(packet.topicName) ?: return
 
@@ -153,22 +155,24 @@ class RequestHandler @OptIn(DelicateCoroutinesApi::class) constructor(
                 deviceUuid,
                 DeviceRequest.ParameterReadRequest(requestId, parameter)
             )
-        } else if (writeRequestRegex matches packet.topicName) {
+        }
+
+        if (writeRequestRegex matches packet.topicName) {
             val matched = writeRequestRegex.matchEntire(packet.topicName) ?: return
             val deviceUuid = Uuid.parse(matched.groupValues[1])
             val parameter = matched.groupValues[2]
             if (!devices.containsKey(deviceUuid)) return
 
-            val payloadString = String(packet.payload?.toByteArray() ?: byteArrayOf());
+            val payloadString = String(packet.payload?.toByteArray() ?: byteArrayOf())
 
             val dto = try {
-                Json.decodeFromString<RequestDTO.WriteRequestDTO>(payloadString)
+                writeJson.decodeFromString<RequestDTO.WriteRequestDTO>(payloadString)
             } catch (_: Exception) {
                 return
             }
 
-            val parameterValueResult = parseWriteRequestDTO(
-                payloadString,
+            val parameterValueResult = validateAndConvertWriteRequest(
+                dto.value,
                 dto.contentType
             )
 
@@ -180,34 +184,54 @@ class RequestHandler @OptIn(DelicateCoroutinesApi::class) constructor(
         }
     }
 
-    private fun parseWriteRequestDTO(payload: String, contentType: String?): MessageResult<ParameterValue> {
-        return try {
-            val json = Json.parseToJsonElement(payload).jsonObject
-            val valueString = json["value"]?.jsonPrimitive?.content
-                ?: return MessageResult.Error("Missing 'value' field in write request")
 
+    private fun validateAndConvertWriteRequest(paramValue: ParameterValue, contentType: String?): MessageResult<ParameterValue> {
+        return try {
             when (contentType) {
-                "labeq/string" -> MessageResult.Result(ParameterValue.StringValue(valueString))
+                "labeq/string" -> {
+                    if (paramValue is ParameterValue.StringValue) MessageResult.Result(paramValue)
+                    else MessageResult.Error("Content type 'labeq/string' expected a StringValue object.")
+                }
 
                 "labeq/integer" -> {
-                    valueString.toIntOrNull()?.let { intVal ->
-                        MessageResult.Result(ParameterValue.IntegerValue(intVal))
-                    } ?: MessageResult.Error("Invalid integer value: $valueString")
+                    when (paramValue) {
+                        is ParameterValue.IntegerValue -> {
+                            MessageResult.Result(paramValue)
+                        }
+
+                        is ParameterValue.StringValue -> {
+                            paramValue.value.toIntOrNull()?.let { intVal ->
+                                MessageResult.Result(ParameterValue.IntegerValue(intVal))
+                            } ?: MessageResult.Error("Invalid integer value: ${paramValue.value}")
+                        }
+
+                        else -> {
+                            MessageResult.Error("Unsupported type configuration for labeq/integer")
+                        }
+                    }
                 }
 
                 "labeq/bytes" -> {
-                    try {
-                        val decoded = java.util.Base64.getDecoder().decode(valueString)
-                        MessageResult.Result(ParameterValue.BytesValue(decoded))
-                    } catch (e: IllegalArgumentException) {
-                        MessageResult.Error("Invalid base64 string: ${e.message}")
+                    when (paramValue) {
+                        is ParameterValue.BytesValue -> {
+                            MessageResult.Result(paramValue)
+                        }
+
+                        is ParameterValue.StringValue -> {
+                            val decoded = java.util.Base64.getDecoder().decode(paramValue.value)
+                            MessageResult.Result(ParameterValue.BytesValue(decoded))
+                        }
+
+                        else -> {
+                            MessageResult.Error("Unsupported type configuration for labeq/bytes")
+                        }
                     }
                 }
 
                 else -> MessageResult.Error("Unsupported content type: $contentType")
             }
         } catch (e: Exception) {
-            MessageResult.Error("Failed to parse payload: ${e.message}")
+            MessageResult.Error("Failed to validate payload contents: ${e.message}")
         }
     }
 }

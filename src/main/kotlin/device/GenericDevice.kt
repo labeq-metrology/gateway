@@ -20,15 +20,15 @@ abstract class GenericDevice @OptIn(ExperimentalUuidApi::class) constructor(
     val driver: DeviceDriver,
     val metadata: DeviceMetadata
 ) {
-    protected var logger: Logger = LoggerFactory.getLogger("${metadata.name}@${metadata.uuid}");
+    protected var logger: Logger = LoggerFactory.getLogger("${metadata.name}@${metadata.uuid}")
 
     /**
      * Abstract map of parameters associated with the device.
      *
-     * Each parameter is identified by a unique string key and is represented by a `DeviceParameter` object.
+     * Each parameter is identified by a unique string key and is represented by a `ParameterValue` object.
      * These parameters contain the current state or configuration values of the device and may be of
      * various types such as integer, string, or binary, based on the specific implementation of
-     * `DeviceParameter`.
+     * `ParameterValue`.
      *
      * The `parameters` property can be accessed to retrieve or modify device settings or states.
      * Parameter interaction is generally done through helper functions or annotations (`ParameterSetter`

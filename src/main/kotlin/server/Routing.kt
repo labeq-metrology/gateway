@@ -1,4 +1,4 @@
-package com.labeq
+package com.labeq.server
 
 import com.labeq.device.GenericDevice
 import io.ktor.http.HttpStatusCode
@@ -10,7 +10,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.put
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 

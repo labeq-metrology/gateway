@@ -1,3 +1,3 @@
 package com.labeq.builtin.connections.serial
 
-class SerialPortUnavailableError : Exception("Serial port is unavailable") {}
+class SerialPortUnavailableError : Exception("Serial port is unavailable")

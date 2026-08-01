@@ -35,7 +35,7 @@ class MQTTEventBus(configuration: MQTTConfig, val devices: MutableMap<Uuid, Gene
 
     val requestHandler = RequestHandler(devices, this)
 
-    private lateinit var thread: Thread;
+    private lateinit var thread: Thread
     private val log = LoggerFactory.getLogger("MQTTEventBus")
     private val broker: Broker = Broker(
         port = configuration.port.value,

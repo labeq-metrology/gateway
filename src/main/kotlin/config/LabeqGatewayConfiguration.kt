@@ -5,15 +5,15 @@ import kotlinx.serialization.Serializable
 // Config data types
 @JvmInline
 @Serializable
-value class Port(val value: Int) {}
+value class Port(val value: Int)
 
 @JvmInline
 @Serializable
-value class Hostname(val value: String) {}
+value class Hostname(val value: String)
 
 @JvmInline
 @Serializable
-value class FilePath(val value: String) {}
+value class FilePath(val value: String)
 
 // Configuration definitions
 @Serializable
@@ -26,7 +26,7 @@ data class LabeqGatewayConfiguration(
 data class ServerConfig(
     val host: Hostname,
     val port: Port
-);
+)
 
 @Serializable
 data class MQTTConfig(
@@ -35,4 +35,4 @@ data class MQTTConfig(
     val ssl: Boolean,
     val sslCertPath: FilePath,
     val sslKeyPath: FilePath
-);
+)

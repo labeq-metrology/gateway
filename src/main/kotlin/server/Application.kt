@@ -1,4 +1,4 @@
-package com.labeq
+package com.labeq.server
 
 import com.charleskorn.kaml.Yaml
 import com.labeq.builtin.connections.serial.SerialConfiguration
@@ -15,6 +15,7 @@ import com.sksamuel.hoplite.ConfigLoaderBuilder
 import com.sksamuel.hoplite.ExperimentalHoplite
 import com.sksamuel.hoplite.addFileSource
 import io.ktor.server.application.*
+import io.ktor.server.netty.EngineMain
 import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.nio.file.Paths
@@ -36,7 +37,7 @@ private var config: LabeqGatewayConfiguration = LabeqGatewayConfiguration(
 
 
 fun main(args: Array<String>) {
-    io.ktor.server.netty.EngineMain.main(args)
+    EngineMain.main(args)
 }
 
 @OptIn(ExperimentalUuidApi::class)
@@ -59,7 +60,7 @@ fun Application.module() {
             )
         ),
         DeviceMetadata(
-            Uuid.random(),
+            Uuid.parse("ce690329-0c10-478e-a15a-70c061b4f8c2"),
             "F. Generator",
             "HP 3325B",
             "Hewlett Packard",

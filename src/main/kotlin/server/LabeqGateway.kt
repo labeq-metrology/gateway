@@ -1,4 +1,4 @@
-package com.labeq
+package com.labeq.server
 
 import com.labeq.communication.MQTTEventBus
 import com.labeq.config.LabeqGatewayConfiguration

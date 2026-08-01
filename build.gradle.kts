@@ -48,6 +48,9 @@ dependencies {
 
     implementation("com.charleskorn.kaml:kaml:0.77.1")
 
+    // Source: https://mvnrepository.com/artifact/org.zeromq/jeromq
+    implementation("org.zeromq:jeromq:0.6.0")
+
     testImplementation("io.ktor:ktor-server-test-host")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
 }
