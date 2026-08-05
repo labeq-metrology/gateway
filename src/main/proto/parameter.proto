@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+service ParameterService {
+  rpc ReadParameter(ParameterReadRequest) returns (ParameterReadResponse);
+  rpc WriteParameter(ParameterWriteRequest) returns (ParameterWriteResponse);
+}
+
+message ParameterReadRequest {
+  string device = 1;
+  string parameter = 2;
+}
+
+message ParameterReadResponse {
+  string value = 1;
+}
+
+message ParameterWriteRequest {
+  string device = 1;
+  string parameter = 2;
+  string value = 3;
+}
+
+message ParameterWriteResponse {
+  bool success = 1;
+  string message = 2;
+  string value = 3;
+}

@@ -2,6 +2,7 @@ package com.labeq.communication
 
 import com.labeq.config.MQTTConfig
 import com.labeq.device.GenericDevice
+import com.labeq.server.LabeqGateway
 import com.labeq.transport.ParameterValue
 import io.github.davidepianca98.mqtt.broker.Broker
 import io.github.davidepianca98.mqtt.broker.interfaces.PacketInterceptor
@@ -21,7 +22,7 @@ import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalUnsignedTypes::class, ExperimentalUuidApi::class)
-class MQTTEventBus(configuration: MQTTConfig, val devices: MutableMap<Uuid, GenericDevice>) {
+class MQTTEventBus(configuration: MQTTConfig, val gateway: LabeqGateway) {
     companion object {
         // Global topics
         val DEVICE_TOPIC = "device"
@@ -33,14 +34,12 @@ class MQTTEventBus(configuration: MQTTConfig, val devices: MutableMap<Uuid, Gene
         val DEVICE_PARAMETER_REQUEST_RESOLVE = "$DEVICE_TOPIC/{uuid}/requests/{request}/resolve"
     }
 
-    val requestHandler = RequestHandler(devices, this)
-
     private lateinit var thread: Thread
     private val log = LoggerFactory.getLogger("MQTTEventBus")
     private val broker: Broker = Broker(
         port = configuration.port.value,
         host = configuration.host.value,
-        packetInterceptor = MQTTInterceptor(this)
+        packetInterceptor = MQTTInterceptor(gateway)
     )
 
     fun listen() {
@@ -156,7 +155,7 @@ class MQTTEventBus(configuration: MQTTConfig, val devices: MutableMap<Uuid, Gene
         )
     }
 
-    private class MQTTInterceptor(val bus: MQTTEventBus) : PacketInterceptor {
+    private class MQTTInterceptor(val gateway: LabeqGateway) : PacketInterceptor {
         override fun packetReceived(
             clientId: String,
             username: String?,
@@ -164,7 +163,7 @@ class MQTTEventBus(configuration: MQTTConfig, val devices: MutableMap<Uuid, Gene
             packet: MQTTPacket
         ) {
             when (packet) {
-                is MQTTPublish -> bus.requestHandler.handlePublish(packet)
+                is MQTTPublish -> gateway.requestHandler.handlePublish(packet)
                 is MQTTConnect -> println("${packet.clientID} ${packet.protocolName}")
             }
         }

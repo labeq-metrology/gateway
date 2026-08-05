@@ -2,6 +2,8 @@ package com.labeq.communication
 
 import com.labeq.device.GenericDevice
 import com.labeq.transport.*
+import com.labeq.transport.MessageResult.*
+import com.labeq.transport.ParameterValue.*
 import io.github.davidepianca98.mqtt.packets.mqtt.MQTTPublish
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -49,13 +51,13 @@ class RequestHandler @OptIn(DelicateCoroutinesApi::class) constructor(
 
     private fun beginDeviceQueueProcessing(device: GenericDevice) {
         if (!deviceQueues.containsKey(device.metadata.uuid)) return
-        val queue = deviceQueues[device.metadata.uuid]!!
+        val queue = deviceQueues[device.metadata.uuid]
         scope.launch {
             while (true) {
-                when (val request = queue.take()) {
+                when (val request = queue?.take()) {
                     is DeviceRequest.ParameterReadRequest -> {
                         val readResult = if (request.requestedParameter == "*") {
-                            if (device.readState()) MessageResult.Result(ParameterValue.StringValue("OK")) else MessageResult.Error(
+                            if (device.readState()) Result(StringValue("OK")) else Error(
                                 "Error while reading device state"
                             )
                         } else {
@@ -67,6 +69,8 @@ class RequestHandler @OptIn(DelicateCoroutinesApi::class) constructor(
                     is DeviceRequest.ParameterWriteRequest -> {
                         notifyParameterChange(device, request, device.setParameter(request.requestedParameter, request.value))
                     }
+
+                    null -> break
                 }
             }
         }

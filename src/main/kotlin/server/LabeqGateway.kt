@@ -1,24 +1,29 @@
 package com.labeq.server
 
 import com.labeq.communication.MQTTEventBus
+import com.labeq.communication.RequestHandler
 import com.labeq.config.LabeqGatewayConfiguration
 import com.labeq.device.GenericDevice
+import com.labeq.script.rpc.ScriptRPCWorker
 import io.ktor.util.logging.*
 import org.slf4j.LoggerFactory
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalUuidApi::class)
-class LabeqGateway(configuration: LabeqGatewayConfiguration) {
+class LabeqGateway(val configuration: LabeqGatewayConfiguration) {
     private val log: Logger = LoggerFactory.getLogger("LabeqGateway")
 
     var devices = mutableMapOf<Uuid, GenericDevice>()
 
-    val eventBus = MQTTEventBus(configuration.mqttConfig, devices)
+    val eventBus = MQTTEventBus(configuration.mqtt, this)
+    val requestHandler = RequestHandler(devices, eventBus)
+    val scriptWorker = ScriptRPCWorker(this)
 
     init {
         log.info("Initializing Labeq Gateway")
         eventBus.listen()
+        scriptWorker.start()
     }
 
     fun registerDevice(device: GenericDevice): Boolean {

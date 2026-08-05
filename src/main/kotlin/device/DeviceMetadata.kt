@@ -12,4 +12,9 @@ data class DeviceMetadata @OptIn(ExperimentalUuidApi::class) constructor(
     val manufacturer: String,
     val driver: String,
     val tags: List<String>,
-)
+) {
+    @OptIn(ExperimentalUuidApi::class)
+    val searchableText: String = listOfNotNull(uuid.toString(), name, manufacturer, model, tags.toString(), driver)
+        .filter { it.isNotBlank() }
+        .joinToString(" ")
+}

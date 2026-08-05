@@ -19,7 +19,8 @@ value class FilePath(val value: String)
 @Serializable
 data class LabeqGatewayConfiguration(
     val server: ServerConfig,
-    val mqttConfig: MQTTConfig
+    val mqtt: MQTTConfig,
+    val rpc: RPCConfig,
 )
 
 @Serializable
@@ -36,3 +37,6 @@ data class MQTTConfig(
     val sslCertPath: FilePath,
     val sslKeyPath: FilePath
 )
+
+@Serializable
+data class RPCConfig(val port: Port)

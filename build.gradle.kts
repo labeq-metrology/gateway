@@ -6,13 +6,15 @@ plugins {
     kotlin("jvm") version "2.1.10"
     id("io.ktor.plugin") version "3.1.2"
     id("org.jetbrains.kotlin.plugin.serialization") version "2.1.10"
+
+    id("com.google.protobuf") version "0.10.0"
 }
 
 group = "com.labeq"
 version = "0.0.1"
 
 kotlin {
-    jvmToolchain(11)
+    jvmToolchain(17)
 }
 
 application {
@@ -20,10 +22,6 @@ application {
 
     val isDevelopment: Boolean = project.ext.has("development")
     applicationDefaultJvmArgs = listOf("-Dio.ktor.development=$isDevelopment")
-}
-
-repositories {
-    mavenCentral()
 }
 
 dependencies {
@@ -48,9 +46,40 @@ dependencies {
 
     implementation("com.charleskorn.kaml:kaml:0.77.1")
 
-    // Source: https://mvnrepository.com/artifact/org.zeromq/jeromq
-    implementation("org.zeromq:jeromq:0.6.0")
+    implementation("io.grpc:grpc-kotlin-stub:1.5.0")
+    implementation("io.grpc:grpc-stub:1.82.2")
+    implementation("io.grpc:grpc-netty:1.82.2")
+    implementation("io.grpc:grpc-protobuf:1.82.2")
+    implementation("com.google.protobuf:protobuf-kotlin:4.35.1")
+
+    implementation("me.xdrop:fuzzywuzzy:1.4.0")
 
     testImplementation("io.ktor:ktor-server-test-host")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
 }
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:4.35.1"
+    }
+    plugins {
+        create("grpc") {
+            artifact = "io.grpc:protoc-gen-grpc-java:1.82.2"
+        }
+        create("grpckt") {
+            artifact = "io.grpc:protoc-gen-grpc-kotlin:1.5.0:jdk8@jar"
+        }
+    }
+    generateProtoTasks {
+        all().forEach {
+            it.plugins {
+                create("grpc")
+                create("grpckt")
+            }
+            it.builtins {
+                create("kotlin")
+            }
+        }
+    }
+}
+

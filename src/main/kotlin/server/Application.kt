@@ -6,6 +6,7 @@ import com.labeq.builtin.connections.serial.SerialConnection
 import com.labeq.builtin.connections.serial.SerialFlowControl
 import com.labeq.builtin.connections.serial.SerialParity
 import com.labeq.builtin.connections.serial.SerialStopBits
+import com.labeq.builtin.drivers.hameg.hm107.HM107Device
 import com.labeq.builtin.drivers.hp.hp3325.HP3325Device
 import com.labeq.builtin.drivers.hp.hp3325.HP3325Driver
 import com.labeq.config.*
@@ -19,6 +20,7 @@ import io.ktor.server.netty.EngineMain
 import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.nio.file.Paths
+import kotlin.system.exitProcess
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -30,11 +32,10 @@ private lateinit var gateway: LabeqGateway
 private var config: LabeqGatewayConfiguration = LabeqGatewayConfiguration(
     server = ServerConfig(
         Hostname("127.0.0.1"), Port(80)
-    ), mqttConfig = MQTTConfig(
+    ), mqtt = MQTTConfig(
         Hostname("127.0.0.1"), Port(1883), false, FilePath(""), FilePath("")
-    )
+    ), rpc = RPCConfig(Port(7777))
 )
-
 
 fun main(args: Array<String>) {
     EngineMain.main(args)
@@ -69,7 +70,30 @@ fun Application.module() {
         )
     )
 
-    gateway.registerDevices(generator)
+    val scope = HM107Device(
+        gateway.eventBus, HP3325Driver(
+            SerialConnection(
+                SerialConfiguration(
+                    port = "COM2",
+                    baudRate = 115200,
+                    dataBits = 7,
+                    stopBits = SerialStopBits.ONE,
+                    flowControl = SerialFlowControl.SOFTWARE,
+                    parity = SerialParity.EVEN
+                )
+            )
+        ),
+        DeviceMetadata(
+            Uuid.random(),
+            "Oscilloscope",
+            "HM1507-3",
+            "HAMEG",
+            "com.labeq.builtin.drivers.hameg.hm107.HM107Driver",
+            listOf("scope")
+        )
+    )
+
+    gateway.registerDevices(generator, scope)
 
     configureHTTP()
     configureSerialization()
@@ -103,10 +127,15 @@ fun Application.ensureConfigurationFiles() {
         )
     }
 
-    config = ConfigLoaderBuilder
-        .default()
-        .withExplicitSealedTypes()
-        .addFileSource(configFile, allowEmpty = true, optional = false)
-        .build()
-        .loadConfigOrThrow<LabeqGatewayConfiguration>()
+    try {
+        config = ConfigLoaderBuilder
+            .default()
+            .withExplicitSealedTypes()
+            .addFileSource(configFile, allowEmpty = true, optional = false)
+            .build()
+            .loadConfigOrThrow<LabeqGatewayConfiguration>()
+    } catch (e: Exception) {
+        println(e.message)
+        exitProcess(1)
+    }
 }
