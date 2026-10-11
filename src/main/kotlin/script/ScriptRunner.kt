@@ -36,7 +36,7 @@ class ScriptRunner(
             p.inputStream.bufferedReader().use { reader ->
                 var line: String?
                 while (reader.readLine().also { line = it } != null) {
-                    log.info("[OUT] $line")
+                    log.info(line)
                 }
             }
 

@@ -1,5 +1,8 @@
 package com.labeq.script.configuration
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class RunnerConfigurationDefinition(
     val name: String,
     val extensions: List<String>,

@@ -4,6 +4,7 @@ import com.labeq.communication.MQTTEventBus
 import com.labeq.communication.RequestHandler
 import com.labeq.config.LabeqGatewayConfiguration
 import com.labeq.device.GenericDevice
+import com.labeq.script.ScriptManager
 import com.labeq.script.rpc.ScriptRPCWorker
 import io.ktor.util.logging.*
 import org.slf4j.LoggerFactory
@@ -19,6 +20,7 @@ class LabeqGateway(val configuration: LabeqGatewayConfiguration) {
     val eventBus = MQTTEventBus(configuration.mqtt, this)
     val requestHandler = RequestHandler(devices, eventBus)
     val scriptWorker = ScriptRPCWorker(this)
+    val scriptManager = ScriptManager()
 
     init {
         log.info("Initializing Labeq Gateway")
@@ -29,7 +31,11 @@ class LabeqGateway(val configuration: LabeqGatewayConfiguration) {
     fun registerDevice(device: GenericDevice): Boolean {
         log.info("Registering new device: ${device.metadata.model} by ${device.metadata.manufacturer}, ${device.metadata.name}@${device.metadata.uuid}")
         devices[device.metadata.uuid] = device
-        device.connect()
+        try {
+            device.connect()
+        } catch (e: Throwable) {
+            log.error("Failed to connect device: ${device.metadata.model} by ${device.metadata.manufacturer}, ${device.metadata.name}@${device.metadata.uuid}", e)
+        }
         return true
     }
 

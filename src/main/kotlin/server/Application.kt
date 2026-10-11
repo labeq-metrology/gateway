@@ -1,22 +1,20 @@
 package com.labeq.server
 
 import com.charleskorn.kaml.Yaml
-import com.labeq.builtin.connections.serial.SerialConfiguration
-import com.labeq.builtin.connections.serial.SerialConnection
-import com.labeq.builtin.connections.serial.SerialFlowControl
-import com.labeq.builtin.connections.serial.SerialParity
-import com.labeq.builtin.connections.serial.SerialStopBits
+import com.labeq.builtin.connections.serial.*
 import com.labeq.builtin.drivers.hameg.hm107.HM107Device
 import com.labeq.builtin.drivers.hp.hp3325.HP3325Device
 import com.labeq.builtin.drivers.hp.hp3325.HP3325Driver
 import com.labeq.config.*
 import com.labeq.config.ServerConfig
 import com.labeq.device.DeviceMetadata
+import com.labeq.script.configuration.RunnerConfiguration
+import com.labeq.script.configuration.RunnerConfigurationDefinition
 import com.sksamuel.hoplite.ConfigLoaderBuilder
 import com.sksamuel.hoplite.ExperimentalHoplite
 import com.sksamuel.hoplite.addFileSource
 import io.ktor.server.application.*
-import io.ktor.server.netty.EngineMain
+import io.ktor.server.netty.*
 import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.nio.file.Paths
@@ -25,6 +23,7 @@ import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 val CONFIG_DIR_PATH = "${Paths.get("config").toAbsolutePath()}"
+val RUNNER_CONFIG_DIR_PATH = "${Paths.get("config/runners").toAbsolutePath()}"
 
 private lateinit var gateway: LabeqGateway
 
@@ -44,8 +43,10 @@ fun main(args: Array<String>) {
 @OptIn(ExperimentalUuidApi::class)
 fun Application.module() {
     ensureConfigurationFiles()
-
     gateway = LabeqGateway(config)
+    ensureRunnerConfigurationFiles()
+    gateway.scriptManager.discoverScripts()
+    gateway.scriptManager.startScript(gateway.scriptManager.availableScripts.values.first(), emptyList(), emptyMap())
 
     val generator = HP3325Device(
         gateway.eventBus, HP3325Driver(
@@ -137,5 +138,33 @@ fun Application.ensureConfigurationFiles() {
     } catch (e: Exception) {
         println(e.message)
         exitProcess(1)
+    }
+}
+
+@OptIn(ExperimentalHoplite::class)
+fun Application.ensureRunnerConfigurationFiles() {
+    val runnerConfigDir = File(RUNNER_CONFIG_DIR_PATH)
+    if (!runnerConfigDir.exists()) {
+        log.info("Runner config directory does not exist: $RUNNER_CONFIG_DIR_PATH, creating it...")
+        runnerConfigDir.mkdirs()
+    }
+
+    runnerConfigDir.listFiles()?.forEach {
+        if (!it.isFile || !it.name.endsWith(".yaml"))
+            return@forEach
+        try {
+            log.info("Runner config file found: $it")
+            val runner = ConfigLoaderBuilder
+                .default()
+                .withExplicitSealedTypes()
+                .addFileSource(it, allowEmpty = true, optional = false)
+                .build()
+                .loadConfigOrThrow<RunnerConfigurationDefinition>()
+            gateway.scriptManager.configurations[runner.name] = RunnerConfiguration(runner)
+            log.info("Loaded runner config: ${runner.name}")
+        } catch (e: Exception) {
+            log.error("Failed loading runner config file: $it (${e.message})")
+            log.error(e.stackTraceToString())
+        }
     }
 }

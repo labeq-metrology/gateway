@@ -1,0 +1,7 @@
+name: Python
+extensions: ["py"]
+command_template:
+  - "python3"
+  - "{file_name}"
+working_directory: "{file_dir}"
+env: {}
