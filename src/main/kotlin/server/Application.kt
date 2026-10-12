@@ -94,7 +94,7 @@ fun Application.module() {
         )
     )
 
-    gateway.registerDevices(generator, scope)
+    gateway.registerDevices(generator)
 
     configureHTTP()
     configureSerialization()

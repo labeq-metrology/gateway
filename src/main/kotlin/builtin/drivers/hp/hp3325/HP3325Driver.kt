@@ -249,6 +249,10 @@ class HP3325Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConn
                 frequency = value.value
                 unit = "HZ"
             }
+            is ParameterValue.IntegerValue -> {
+                frequency = value.value.toDouble()
+                unit = "HZ"
+            }
             else -> return MessageResult.Error("Invalid content type")
         }
 

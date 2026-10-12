@@ -5,23 +5,45 @@ service ParameterService {
   rpc WriteParameter(ParameterWriteRequest) returns (ParameterWriteResponse);
 }
 
+message IntegerArray {
+  repeated int32 values = 1;
+}
+
+message DoubleArray {
+  repeated double values = 1;
+}
+
+message ParameterValue {
+  oneof value_type {
+    string string_value = 1;
+    int32 integer_value = 2;
+    double double_value = 3;
+    bytes bytes_value = 4;
+    IntegerArray integer_array_value = 5;
+    DoubleArray double_array_value = 6;
+  }
+}
+
 message ParameterReadRequest {
   string device = 1;
   string parameter = 2;
 }
 
 message ParameterReadResponse {
-  string value = 1;
+  oneof result {
+    ParameterValue value = 1; // Maps to MessageResult.Result
+    string error = 2;         // Maps to MessageResult.Error
+  }
 }
 
 message ParameterWriteRequest {
   string device = 1;
   string parameter = 2;
-  string value = 3;
+  ParameterValue value = 3;
 }
 
 message ParameterWriteResponse {
   bool success = 1;
   string message = 2;
-  string value = 3;
+  ParameterValue value = 3;
 }
