@@ -96,7 +96,7 @@ class ScriptManager {
                     file.absolutePath,
                     possibleRunner?.definition?.name ?: ""
                 )
-                availableScripts[file.absolutePath] = script
+                availableScripts[file.nameWithoutExtension] = script
                 log.info("Script {} discovered. Associated runner: {}", script.name, possibleRunner?.definition?.name)
             }
     }

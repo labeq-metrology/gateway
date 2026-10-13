@@ -1,7 +1,7 @@
 package com.labeq.server
 
 import com.labeq.device.GenericDevice
-import io.ktor.http.HttpStatusCode
+import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.autohead.*
 import io.ktor.server.response.*
@@ -19,7 +19,6 @@ fun Application.configureRouting(gateway: LabeqGateway) {
     routing {
         get("/devices/{deviceId}") {
             try {
-                println(call.parameters["deviceId"])
                 val deviceId = Uuid.parse(call.parameters["deviceId"]!!)
                 val device: GenericDevice? = gateway.devices[deviceId]
 
@@ -29,13 +28,14 @@ fun Application.configureRouting(gateway: LabeqGateway) {
                     }
                     device?.parameters?.let { put("parameters", Json.encodeToJsonElement(it)) }
                 }
-                println(json)
+
                 call.respondText { json.toString() }
             } catch (e: IllegalArgumentException) {
                 e.printStackTrace()
                 call.respond(HttpStatusCode.BadRequest)
             }
         }
+
         get("/devices") {
             val deviceList = gateway.devices.values.map { it ->
                 buildJsonObject {
@@ -46,6 +46,29 @@ fun Application.configureRouting(gateway: LabeqGateway) {
                 }
             }
             call.respondText { Json.encodeToString(deviceList) }
+        }
+
+        route("/scripts") {
+            get {
+                val scriptList = gateway.scriptManager.availableScripts.values.map { Json.encodeToJsonElement(it) }
+                call.respondText(scriptList.toString())
+            }
+
+            get("/{scriptId}") {
+                try {
+                    val scriptId = call.parameters["scriptId"]!!
+                    val script = gateway.scriptManager.availableScripts[scriptId]
+
+                    if (script != null) {
+                        call.respondText { Json.encodeToString(script) }
+                    } else {
+                        call.respond(HttpStatusCode.NotFound)
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    call.respond(HttpStatusCode.BadRequest)
+                }
+            }
         }
 
     }
