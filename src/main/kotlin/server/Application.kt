@@ -46,7 +46,6 @@ fun Application.module() {
     gateway = LabeqGateway(config)
     ensureRunnerConfigurationFiles()
     gateway.scriptManager.discoverScripts()
-    gateway.scriptManager.startScript(gateway.scriptManager.availableScripts.values.first(), emptyList(), emptyMap())
 
     val generator = HP3325Device(
         gateway.eventBus, HP3325Driver(

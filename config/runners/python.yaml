@@ -1,7 +1,9 @@
 name: Python
 extensions: ["py"]
 command_template:
-  - "python3"
+  - "py"
+  - "-3"
   - "{file_name}"
 working_directory: "{file_dir}"
-env: {}
+env:
+  PYTHONPATH: '{file_dir}\labeq-gateway-sdk-python'

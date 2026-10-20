@@ -40,7 +40,7 @@ class ScriptRPCWorker(val gateway: LabeqGateway) {
         val newServer = ServerBuilder
             .forPort(port)
             .addService(DeviceService(gateway.devices))
-            .addService(HeartbeatService())
+            .addService(HeartbeatService(gateway.scriptManager))
             .addService(ParameterService(gateway.devices))
             .build()
 

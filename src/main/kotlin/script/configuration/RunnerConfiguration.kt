@@ -35,7 +35,9 @@ class RunnerConfiguration(val definition: RunnerConfigurationDefinition) {
         val resolvedWorkingDir = replaceTokens(definition.workingDirectory, tokens)
 
         val mergedEnv = buildMap {
-            putAll(definition.env)
+            definition.env.forEach { (name, value) ->
+                put(name, replaceTokens(value, tokens))
+            }
             putAll(runtimeEnv)
         }
 

@@ -26,6 +26,9 @@ class MQTTEventBus(configuration: MQTTConfig, val gateway: LabeqGateway) {
     companion object {
         // Global topics
         val DEVICE_TOPIC = "device"
+        val SCRIPT_TOPIC = "script"
+        val SCRIPT_STATUS_TOPIC = "$SCRIPT_TOPIC/{executionId}/status"
+        val SCRIPT_HEARTBEAT_TOPIC = "$SCRIPT_TOPIC/{executionId}/heartbeat"
 
         // Device topics
         val DEVICE_PARAMETER_UPDATE_TOPIC = "$DEVICE_TOPIC/{uuid}/parameters/{parameter}/update"
@@ -134,6 +137,34 @@ class MQTTEventBus(configuration: MQTTConfig, val gateway: LabeqGateway) {
         )
     }
 
+    fun publishScriptStatus(executionId: Uuid, scriptName: String, status: String) {
+        publishJson(
+            SCRIPT_STATUS_TOPIC.expandPlaceholders(mapOf("executionId" to executionId.toString())),
+            buildJsonObject {
+                put("executionId", executionId.toString())
+                put("script", scriptName)
+                put("status", status)
+            }
+        )
+    }
+
+    fun publishScriptHeartbeat(
+        executionId: Uuid,
+        scriptName: String,
+        heartbeatId: Int,
+        workerStatus: String
+    ) {
+        publishJson(
+            SCRIPT_HEARTBEAT_TOPIC.expandPlaceholders(mapOf("executionId" to executionId.toString())),
+            buildJsonObject {
+                put("executionId", executionId.toString())
+                put("script", scriptName)
+                put("heartbeatId", heartbeatId)
+                put("status", workerStatus)
+            }
+        )
+    }
+
     private fun String.expandPlaceholders(values: Map<String, String>): String {
         var result = this
         for ((key, value) in values) {
@@ -152,6 +183,15 @@ class MQTTEventBus(configuration: MQTTConfig, val gateway: LabeqGateway) {
                 contentType = "labeq/$contentType"
             ),
             payload
+        )
+    }
+
+    private fun publishJson(topic: String, payload: kotlinx.serialization.json.JsonObject) {
+        publish(
+            topic,
+            payload.toString().toByteArray().toUByteArray(),
+            retain = false,
+            contentType = "json"
         )
     }
 

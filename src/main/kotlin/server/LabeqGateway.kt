@@ -20,7 +20,7 @@ class LabeqGateway(val configuration: LabeqGatewayConfiguration) {
     val eventBus = MQTTEventBus(configuration.mqtt, this)
     val requestHandler = RequestHandler(devices, eventBus)
     val scriptWorker = ScriptRPCWorker(this)
-    val scriptManager = ScriptManager()
+    val scriptManager = ScriptManager(eventBus)
 
     init {
         log.info("Initializing Labeq Gateway")

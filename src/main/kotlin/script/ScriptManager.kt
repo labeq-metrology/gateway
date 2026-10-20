@@ -1,21 +1,25 @@
 package com.labeq.script
 
+import Heartbeat.WorkerStatus
+import com.labeq.communication.MQTTEventBus
 import com.labeq.script.configuration.RunnerConfiguration
 import kotlinx.io.IOException
 import kotlinx.io.files.Path
 import org.slf4j.LoggerFactory
 import java.io.File
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalUuidApi::class)
-class ScriptManager {
+class ScriptManager(private val eventBus: MQTTEventBus) {
     private val log = LoggerFactory.getLogger(ScriptManager::class.java)
 
     val configurations = ConcurrentHashMap<String, RunnerConfiguration>()
     val availableScripts = HashMap<String, Script>()
     val activeScripts = ConcurrentHashMap<Uuid, ScriptRunner>()
+    private val nextHeartbeatId = AtomicInteger(0)
 
     /**
      * Registers a configuration that scripts can reference via their `runner` property.
@@ -34,27 +38,74 @@ class ScriptManager {
     fun startScript(
         script: Script,
         arguments: List<String> = emptyList(),
-        runtimeEnv: Map<String, String> = emptyMap()
+        runtimeEnv: Map<String, String> = emptyMap(),
+        heartbeatId: Int = 0
     ): Uuid {
         val configuration = configurations[script.runner]
             ?: throw IllegalArgumentException("No runner configuration found for '${script.runner}'")
 
-        val scriptPath = Path(script.file)
-        val preparedCommand = configuration.prepareCommand(scriptPath, arguments, runtimeEnv)
         val executionId = Uuid.random()
+        val effectiveHeartbeatId = if (heartbeatId == 0) {
+            nextHeartbeatId.getAndUpdate { if (it == Int.MAX_VALUE) 1 else it + 1 }
+        } else {
+            heartbeatId
+        }
+        val scriptPath = Path(script.file)
+        val preparedCommand = configuration.prepareCommand(
+            scriptPath,
+            listOf(effectiveHeartbeatId.toString()) + arguments,
+            runtimeEnv
+        )
 
         val scriptRunner = ScriptRunner(
             executionId = executionId,
             script = script,
+            heartbeatId = effectiveHeartbeatId,
             preparedCommand = preparedCommand,
-            onComplete = { id -> removeActiveScript(id) }
+            onStatusChange = { runner, status ->
+                eventBus.publishScriptStatus(runner.executionId, runner.script.name, status.name)
+            },
+            onComplete = { id ->
+                removeActiveScript(id)
+            }
         )
 
         activeScripts[executionId] = scriptRunner
         scriptRunner.start()
+        eventBus.publishScriptStatus(executionId, script.name, scriptRunner.status.name)
 
         log.info("Started script '${script.name}' with execution ID$executionId")
         return executionId
+    }
+
+    fun startScript(
+        scriptId: String,
+        arguments: List<String> = emptyList(),
+        runtimeEnv: Map<String, String> = emptyMap(),
+        heartbeatId: Int = 0
+    ): Uuid {
+        val script = availableScripts[scriptId]
+            ?: throw NoSuchElementException("Script '$scriptId' not found")
+        return startScript(script, arguments, runtimeEnv, heartbeatId)
+    }
+
+    fun execution(executionId: Uuid): ScriptRunner? = activeScripts[executionId]
+
+    fun handleHeartbeat(workerId: Int, status: WorkerStatus): Boolean {
+        print("" + workerId + "" +status)
+        val runner = activeScripts.values.firstOrNull {
+            it.heartbeatId == workerId
+        }
+
+        runner ?: return false
+        runner.handleHeartbeat(status)
+        eventBus.publishScriptHeartbeat(
+            runner.executionId,
+            runner.script.name,
+            runner.heartbeatId,
+            status.name
+        )
+        return true
     }
 
     fun stopScript(executionId: Uuid) {
