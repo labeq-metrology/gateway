@@ -1,10 +1,12 @@
 package com.labeq.script.configuration
 
 import kotlinx.io.files.Path
+import kotlinx.serialization.Serializable
 
 /**
  * A fully resolved context containing everything needed to spawn the process.
  */
+@Serializable
 data class PreparedExecution(
     val command: List<String>,
     val workingDirectory: String,

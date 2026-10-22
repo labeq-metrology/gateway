@@ -19,6 +19,7 @@ class ScriptManager(private val eventBus: MQTTEventBus) {
     val configurations = ConcurrentHashMap<String, RunnerConfiguration>()
     val availableScripts = HashMap<String, Script>()
     val activeScripts = ConcurrentHashMap<Uuid, ScriptRunner>()
+    val runs = ConcurrentHashMap<Uuid, ScriptRun>()
     private val nextHeartbeatId = AtomicInteger(0)
 
     /**
@@ -65,8 +66,9 @@ class ScriptManager(private val eventBus: MQTTEventBus) {
             onStatusChange = { runner, status ->
                 eventBus.publishScriptStatus(runner.executionId, runner.script.name, status.name)
             },
-            onComplete = { id ->
+            onComplete = { id, run ->
                 removeActiveScript(id)
+                runs[id] = run
             }
         )
 

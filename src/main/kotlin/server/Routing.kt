@@ -28,7 +28,9 @@ private data class ScriptExecutionResponse(
     val script: Script,
     val status: String,
     val heartbeatId: Int,
-    val lastHeartbeatAt: Long?
+    val lastHeartbeatAt: Long?,
+    val startedAt: Long,
+    val log: List<String>
 )
 
 @OptIn(ExperimentalUuidApi::class)
@@ -94,6 +96,20 @@ fun Application.configureRouting(gateway: LabeqGateway) {
                 }
             }
 
+            get("/{scriptId}/runs") {
+                val scriptId = call.parameters["scriptId"]
+                    ?: return@get call.respond(HttpStatusCode.BadRequest)
+                val script = gateway.scriptManager.availableScripts[scriptId]
+                    ?: return@get call.respond(HttpStatusCode.NotFound)
+                val activeRuns = gateway.scriptManager.activeScripts.values
+                    .filter { it.script.name == script.name }
+                    .map { it.toResponse() }
+                val completedRuns = gateway.scriptManager.runs.values
+                    .filter { it.script.name == script.name }
+                    .map { it.toResponse() }
+                call.respond((activeRuns + completedRuns).sortedByDescending { it.startedAt })
+            }
+
             post("/{scriptId}/start") {
                 val scriptId = call.parameters["scriptId"]
                     ?: return@post call.respond(HttpStatusCode.BadRequest)
@@ -119,7 +135,10 @@ fun Application.configureRouting(gateway: LabeqGateway) {
             route("/executions") {
                 get {
                     call.respond(
-                        gateway.scriptManager.activeScripts.values.map { it.toResponse() }
+                        (
+                            gateway.scriptManager.activeScripts.values.map { it.toResponse() } +
+                                gateway.scriptManager.runs.values.map { it.toResponse() }
+                            ).sortedByDescending { it.startedAt }
                     )
                 }
 
@@ -127,8 +146,12 @@ fun Application.configureRouting(gateway: LabeqGateway) {
                     val executionId = parseUuid(call.parameters["executionId"])
                         ?: return@get call.respond(HttpStatusCode.BadRequest)
                     val execution = gateway.scriptManager.execution(executionId)
+                    if (execution != null) {
+                        return@get call.respond(execution.toResponse())
+                    }
+                    val run = gateway.scriptManager.runs[executionId]
                         ?: return@get call.respond(HttpStatusCode.NotFound)
-                    call.respond(execution.toResponse())
+                    call.respond(run.toResponse())
                 }
 
                 post("/{executionId}/stop") {
@@ -158,5 +181,18 @@ private fun com.labeq.script.ScriptRunner.toResponse() = ScriptExecutionResponse
     script = script,
     status = status.name,
     heartbeatId = heartbeatId,
-    lastHeartbeatAt = lastHeartbeatAt
+    lastHeartbeatAt = lastHeartbeatAt,
+    startedAt = startedAt,
+    log = snapshot().log
+)
+
+@OptIn(ExperimentalUuidApi::class)
+private fun com.labeq.script.ScriptRun.toResponse() = ScriptExecutionResponse(
+    executionId = executionId.toString(),
+    script = script,
+    status = status,
+    heartbeatId = heartbeatId,
+    lastHeartbeatAt = lastHeartbeatAt,
+    startedAt = startedAt,
+    log = log
 )
