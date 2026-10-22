@@ -17,7 +17,7 @@ class ScriptManager(private val eventBus: MQTTEventBus) {
     private val log = LoggerFactory.getLogger(ScriptManager::class.java)
 
     val configurations = ConcurrentHashMap<String, RunnerConfiguration>()
-    val availableScripts = HashMap<String, Script>()
+    val availableScripts = ConcurrentHashMap<String, Script>()
     val activeScripts = ConcurrentHashMap<Uuid, ScriptRunner>()
     val runs = ConcurrentHashMap<Uuid, ScriptRun>()
     private val nextHeartbeatId = AtomicInteger(0)
@@ -76,7 +76,7 @@ class ScriptManager(private val eventBus: MQTTEventBus) {
         scriptRunner.start()
         eventBus.publishScriptStatus(executionId, script.name, scriptRunner.status.name)
 
-        log.info("Started script '${script.name}' with execution ID$executionId")
+        log.info("Started script '${script.name}' with execution ID $executionId")
         return executionId
     }
 
@@ -93,11 +93,58 @@ class ScriptManager(private val eventBus: MQTTEventBus) {
 
     fun execution(executionId: Uuid): ScriptRunner? = activeScripts[executionId]
 
+    fun executionByHeartbeat(workerId: Int): ScriptRunner? =
+        activeScripts.values.firstOrNull { it.heartbeatId == workerId }
+
+    fun beginMeasurementStep(
+        workerId: Int,
+        stepId: String,
+    ): Boolean {
+        val runner = executionByHeartbeat(workerId) ?: return false
+        runner.beginMeasurementStep(stepId)
+        return true
+    }
+
+    fun registerMeasurementStep(workerId: Int, stepId: String, title: String, description: String): Boolean {
+        val runner = executionByHeartbeat(workerId) ?: return false
+        runner.registerMeasurementStep(stepId, title, description)
+        return true
+    }
+
+    fun saveMeasurementResult(
+        workerId: Int,
+        stepId: String,
+        key: String,
+        value: com.labeq.transport.ParameterValue,
+        unit: String,
+        resultStatus: String,
+        requiredValue: com.labeq.transport.ParameterValue?,
+        tolerance: Double?,
+        condition: String?,
+        lowerBound: com.labeq.transport.ParameterValue?,
+        upperBound: com.labeq.transport.ParameterValue?
+    ): Boolean {
+        val runner = executionByHeartbeat(workerId) ?: return false
+        runner.saveMeasurementResult(
+            stepId, key, value, unit, resultStatus, requiredValue, tolerance,
+            condition, lowerBound, upperBound
+        )
+        return true
+    }
+
+    fun endMeasurementStep(
+        workerId: Int,
+        stepId: String,
+        status: MeasurementStepState,
+        error: String
+    ): Boolean {
+        val runner = executionByHeartbeat(workerId) ?: return false
+        runner.endMeasurementStep(stepId, status, error)
+        return true
+    }
+
     fun handleHeartbeat(workerId: Int, status: WorkerStatus): Boolean {
-        print("" + workerId + "" +status)
-        val runner = activeScripts.values.firstOrNull {
-            it.heartbeatId == workerId
-        }
+        val runner = executionByHeartbeat(workerId)
 
         runner ?: return false
         runner.handleHeartbeat(status)

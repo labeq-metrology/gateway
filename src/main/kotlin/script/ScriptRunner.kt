@@ -2,7 +2,6 @@ package com.labeq.script
 
 import com.labeq.script.configuration.PreparedExecution
 import Heartbeat.WorkerStatus
-import kotlinx.serialization.Serializable
 import org.slf4j.LoggerFactory
 import java.io.File
 import java.io.PrintWriter
@@ -16,7 +15,6 @@ import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalUuidApi::class)
-@Serializable
 data class ScriptRun(
     val executionId: Uuid,
     val script: Script,
@@ -25,7 +23,8 @@ data class ScriptRun(
     var status: String = WorkerStatus.STARTING.name,
     val heartbeatId: Int,
     val startedAt: Long = System.currentTimeMillis(),
-    @Volatile var lastHeartbeatAt: Long? = null
+    @Volatile var lastHeartbeatAt: Long? = null,
+    val steps: CopyOnWriteArrayList<MeasurementStep> = CopyOnWriteArrayList()
 )
 
 @OptIn(ExperimentalUuidApi::class)
@@ -101,6 +100,9 @@ class ScriptRunner(
             recordError("Failed to execute script '${script.name}': ${e.message}", e)
             status = WorkerStatus.CRASHED
         } finally {
+            if (status == WorkerStatus.CRASHED || status == WorkerStatus.STOPPED) {
+                scriptRun.markAbortedSteps("Script ended before this step completed")
+            }
             onComplete(executionId, scriptRun)
         }
     }
@@ -117,6 +119,51 @@ class ScriptRunner(
     }
 
     fun snapshot(): ScriptRun = scriptRun
+
+    fun beginMeasurementStep(stepId: String): MeasurementStep =
+        scriptRun.beginStep(stepId)
+
+    fun registerMeasurementStep(stepId: String, title: String, description: String): MeasurementStep {
+        require(stepId.isNotBlank()) { "step_id must not be blank" }
+        require(title.isNotBlank()) { "title must not be blank" }
+        require(scriptRun.steps.none { it.id == stepId }) { "step '$stepId' already exists" }
+        return MeasurementStep(stepId, title, description, status = MeasurementStepState.PENDING)
+            .also { scriptRun.steps += it }
+    }
+
+    fun saveMeasurementResult(
+        stepId: String,
+        key: String,
+        value: com.labeq.transport.ParameterValue,
+        unit: String,
+        resultStatus: String,
+        requiredValue: com.labeq.transport.ParameterValue?,
+        tolerance: Double?,
+        condition: String?,
+        lowerBound: com.labeq.transport.ParameterValue?,
+        upperBound: com.labeq.transport.ParameterValue?
+    ) {
+        val step = scriptRun.findStep(stepId) ?: error("step '$stepId' does not exist")
+        check(step.status == MeasurementStepState.RUNNING) { "step '$stepId' is not running" }
+        require(key.isNotBlank()) { "result key must not be blank" }
+        step.results += MeasurementResult(
+            key, value, unit, resultStatus, requiredValue, tolerance,
+            condition, lowerBound, upperBound
+        )
+    }
+
+    fun endMeasurementStep(stepId: String, stepStatus: MeasurementStepState, error: String) {
+        val step = scriptRun.findStep(stepId) ?: error("step '$stepId' does not exist")
+        check(step.status == MeasurementStepState.RUNNING) { "step '$stepId' is not running" }
+        require(stepStatus == MeasurementStepState.PASSED ||
+                stepStatus == MeasurementStepState.FAILED ||
+                stepStatus == MeasurementStepState.SKIPPED) {
+            "step status must be PASSED, FAILED, or SKIPPED"
+        }
+        step.status = stepStatus
+        step.error = error.ifBlank { null }
+        step.completedAt = System.currentTimeMillis()
+    }
 
     private fun stopGracefully() {
         val currentProcess = process ?: return

@@ -2,6 +2,7 @@ package com.labeq.script.rpc
 
 import com.labeq.script.rpc.service.DeviceService
 import com.labeq.script.rpc.service.HeartbeatService
+import com.labeq.script.rpc.service.MeasurementService
 import com.labeq.script.rpc.service.ParameterService
 import com.labeq.server.LabeqGateway
 import io.grpc.Server
@@ -41,6 +42,7 @@ class ScriptRPCWorker(val gateway: LabeqGateway) {
             .forPort(port)
             .addService(DeviceService(gateway.devices))
             .addService(HeartbeatService(gateway.scriptManager))
+            .addService(MeasurementService(gateway.scriptManager))
             .addService(ParameterService(gateway.devices))
             .build()
 

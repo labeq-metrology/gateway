@@ -2,6 +2,8 @@ package com.labeq.server
 
 import com.labeq.device.GenericDevice
 import com.labeq.script.Script
+import com.labeq.script.MeasurementStep
+import com.labeq.transport.ParameterValue
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.autohead.*
@@ -12,6 +14,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -30,7 +33,34 @@ private data class ScriptExecutionResponse(
     val heartbeatId: Int,
     val lastHeartbeatAt: Long?,
     val startedAt: Long,
-    val log: List<String>
+    val log: List<String>,
+    val steps: List<MeasurementStepResponse>
+)
+
+@kotlinx.serialization.Serializable
+private data class MeasurementStepResponse(
+    val id: String,
+    val title: String,
+    val description: String,
+    val status: String,
+    val startedAt: Long,
+    val completedAt: Long?,
+    val error: String?,
+    val results: List<MeasurementResultResponse>
+)
+
+@kotlinx.serialization.Serializable
+private data class MeasurementResultResponse(
+    val key: String,
+    val value: kotlinx.serialization.json.JsonElement,
+    val unit: String,
+    val status: String,
+    val requiredValue: kotlinx.serialization.json.JsonElement? = null,
+    val tolerance: Double? = null,
+    val condition: String? = null,
+    val lowerBound: kotlinx.serialization.json.JsonElement? = null,
+    val upperBound: kotlinx.serialization.json.JsonElement? = null,
+    val recordedAt: Long
 )
 
 @OptIn(ExperimentalUuidApi::class)
@@ -183,7 +213,8 @@ private fun com.labeq.script.ScriptRunner.toResponse() = ScriptExecutionResponse
     heartbeatId = heartbeatId,
     lastHeartbeatAt = lastHeartbeatAt,
     startedAt = startedAt,
-    log = snapshot().log
+    log = snapshot().log,
+    steps = snapshot().steps.map { it.toResponse() }
 )
 
 @OptIn(ExperimentalUuidApi::class)
@@ -194,5 +225,40 @@ private fun com.labeq.script.ScriptRun.toResponse() = ScriptExecutionResponse(
     heartbeatId = heartbeatId,
     lastHeartbeatAt = lastHeartbeatAt,
     startedAt = startedAt,
-    log = log
+    log = log,
+    steps = steps.map { it.toResponse() }
 )
+
+private fun MeasurementStep.toResponse() = MeasurementStepResponse(
+    id = id,
+    title = title,
+    description = description,
+    status = status.name,
+    startedAt = startedAt,
+    completedAt = completedAt,
+    error = error,
+    results = results.map { result ->
+        MeasurementResultResponse(
+            key = result.key,
+            value = result.value.toJsonElement(),
+            unit = result.unit,
+            status = result.status,
+            requiredValue = result.requiredValue?.toJsonElement(),
+            tolerance = result.tolerance,
+            condition = result.condition,
+            lowerBound = result.lowerBound?.toJsonElement(),
+            upperBound = result.upperBound?.toJsonElement(),
+            recordedAt = result.recordedAt
+        )
+    }
+)
+
+private fun ParameterValue.toJsonElement(): kotlinx.serialization.json.JsonElement =
+    when (this) {
+        is ParameterValue.StringValue -> kotlinx.serialization.json.JsonPrimitive(value)
+        is ParameterValue.IntegerValue -> kotlinx.serialization.json.JsonPrimitive(value)
+        is ParameterValue.DoubleValue -> kotlinx.serialization.json.JsonPrimitive(value)
+        is ParameterValue.BytesValue -> kotlinx.serialization.json.JsonPrimitive(value.decodeToString())
+        is ParameterValue.IntegerArrayValue -> kotlinx.serialization.json.JsonArray(value.map(::JsonPrimitive))
+        is ParameterValue.DoubleArrayValue -> kotlinx.serialization.json.JsonArray(value.map(::JsonPrimitive))
+    }
