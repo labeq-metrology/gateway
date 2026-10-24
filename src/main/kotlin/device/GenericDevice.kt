@@ -102,14 +102,7 @@ abstract class GenericDevice @OptIn(ExperimentalUuidApi::class) constructor(
                     val value = result.getOrNull() as ParameterValue
                     notifyParameterUpdate(parameter, value)
                     parameters[parameter] = value
-                    when (returnType) {
-                        ReturnType.String, ReturnType.SameAsInput -> MessageResult.Result(value as ParameterValue.StringValue)
-                        ReturnType.Bytes -> MessageResult.Result(value as ParameterValue.BytesValue)
-                        ReturnType.Integer -> MessageResult.Result(value as ParameterValue.IntegerValue)
-                        ReturnType.Double -> MessageResult.Result(value as ParameterValue.DoubleValue)
-                        ReturnType.IntegerArray -> MessageResult.Result(value as ParameterValue.IntegerArrayValue)
-                        ReturnType.DoubleArray -> MessageResult.Result(value as ParameterValue.DoubleArrayValue)
-                    }
+                    MessageResult.Result(value.convertTo(if (returnType == ReturnType.SameAsInput) ReturnType.String else returnType))
                 }
             }
         } catch (e: Exception) {

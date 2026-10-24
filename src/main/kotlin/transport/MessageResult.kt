@@ -214,4 +214,58 @@ sealed class ParameterValue {
             return value.contentHashCode()
         }
     }
+
+    fun convertTo(returnType: ReturnType): ParameterValue {
+        return when (returnType) {
+            is ReturnType.SameAsInput -> this
+            is ReturnType.String -> {
+                when (this) {
+                    is StringValue -> this
+                    is IntegerValue -> StringValue(this.value.toString())
+                    is DoubleValue -> StringValue(this.value.toString())
+                    else -> this
+                }
+            }
+
+            is ReturnType.Integer -> {
+                when (this) {
+                    is IntegerValue -> this
+                    is StringValue -> IntegerValue(this.value.toIntOrNull() ?: 0)
+                    is DoubleValue -> IntegerValue(this.value.toInt())
+                    else -> this
+                }
+            }
+
+            is ReturnType.Double -> {
+                when (this) {
+                    is DoubleValue -> this
+                    is StringValue -> DoubleValue(this.value.toDoubleOrNull() ?: 0.0)
+                    is IntegerValue -> DoubleValue(this.value.toDouble())
+                    else -> this
+                }
+            }
+
+            is ReturnType.Bytes -> {
+                when (this) {
+                    is BytesValue -> this
+                    is StringValue -> BytesValue(this.value.toByteArray())
+                    else -> this
+                }
+            }
+
+            is ReturnType.IntegerArray -> {
+                when (this) {
+                    is IntegerArrayValue -> this
+                    else -> this
+                }
+            }
+
+            is ReturnType.DoubleArray -> {
+                when (this) {
+                    is DoubleArrayValue -> this
+                    else -> this
+                }
+            }
+        }
+    }
 }

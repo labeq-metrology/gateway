@@ -10,6 +10,7 @@ import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.time.Duration.Companion.milliseconds
 
 class SerialConnection(connectionConfiguration: ConnectionConfiguration) : DeviceConnection(
     connectionConfiguration,
@@ -67,7 +68,7 @@ class SerialConnection(connectionConfiguration: ConnectionConfiguration) : Devic
             }
 
             // Give the port a moment to stabilize
-            delay(50)
+            delay(50.milliseconds)
 
             status = DeviceConnectionStatus.CONNECTED
             true

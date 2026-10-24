@@ -189,53 +189,46 @@ class RequestHandler @OptIn(DelicateCoroutinesApi::class) constructor(
     }
 
 
-    private fun validateAndConvertWriteRequest(paramValue: ParameterValue, contentType: String?): MessageResult<ParameterValue> {
+    private fun validateAndConvertWriteRequest(
+        paramValue: ParameterValue,
+        contentType: String?
+    ): MessageResult<ParameterValue> {
         return try {
             when (contentType) {
-                "labeq/string" -> {
-                    if (paramValue is ParameterValue.StringValue) MessageResult.Result(paramValue)
-                    else MessageResult.Error("Content type 'labeq/string' expected a StringValue object.")
+                "labeq/string" -> when (paramValue) {
+                    is ParameterValue.StringValue -> MessageResult.Result(paramValue)
+                    is ParameterValue.IntegerValue -> MessageResult.Result(ParameterValue.StringValue(paramValue.value.toString()))
+                    is ParameterValue.DoubleValue -> MessageResult.Result(ParameterValue.StringValue(paramValue.value.toString()))
+                    is ParameterValue.BytesValue -> MessageResult.Error("Cannot meaningfully convert BytesValue to labeq/string")
+                    else -> MessageResult.Error("Cannot convert ${paramValue::class.simpleName} to labeq/string")
                 }
 
-                "labeq/integer" -> {
-                    when (paramValue) {
-                        is ParameterValue.IntegerValue -> {
-                            MessageResult.Result(paramValue)
-                        }
+                "labeq/integer" -> when (paramValue) {
+                    is ParameterValue.IntegerValue -> MessageResult.Result(paramValue)
+                    is ParameterValue.DoubleValue -> MessageResult.Result(ParameterValue.IntegerValue(paramValue.value.toInt()))
+                    is ParameterValue.StringValue -> paramValue.value.toIntOrNull()?.let {
+                        MessageResult.Result(ParameterValue.IntegerValue(it))
+                    } ?: MessageResult.Error("Invalid integer string format: '${paramValue.value}'")
+                    else -> MessageResult.Error("Cannot convert ${paramValue::class.simpleName} to labeq/integer")
+                }
 
-                        is ParameterValue.StringValue -> {
-                            paramValue.value.toIntOrNull()?.let { intVal ->
-                                MessageResult.Result(ParameterValue.IntegerValue(intVal))
-                            } ?: MessageResult.Error("Invalid integer value: ${paramValue.value}")
-                        }
-
-                        else -> {
-                            MessageResult.Error("Unsupported type configuration for labeq/integer")
-                        }
+                "labeq/bytes" -> when (paramValue) {
+                    is ParameterValue.BytesValue -> MessageResult.Result(paramValue)
+                    is ParameterValue.StringValue -> {
+                        val decoded = java.util.Base64.getDecoder().decode(paramValue.value)
+                        MessageResult.Result(ParameterValue.BytesValue(decoded))
                     }
+                    else -> MessageResult.Error("Cannot convert ${paramValue::class.simpleName} to labeq/bytes")
                 }
 
-                "labeq/bytes" -> {
-                    when (paramValue) {
-                        is ParameterValue.BytesValue -> {
-                            MessageResult.Result(paramValue)
-                        }
-
-                        is ParameterValue.StringValue -> {
-                            val decoded = java.util.Base64.getDecoder().decode(paramValue.value)
-                            MessageResult.Result(ParameterValue.BytesValue(decoded))
-                        }
-
-                        else -> {
-                            MessageResult.Error("Unsupported type configuration for labeq/bytes")
-                        }
-                    }
-                }
-
+                null, "" -> MessageResult.Result(paramValue)
+                
                 else -> MessageResult.Error("Unsupported content type: $contentType")
             }
+        } catch (e: IllegalArgumentException) {
+            MessageResult.Error("Decoding error (e.g. invalid base64): ${e.message}")
         } catch (e: Exception) {
-            MessageResult.Error("Failed to validate payload contents: ${e.message}")
+            MessageResult.Error("Unexpected error validating payload: ${e.message}")
         }
     }
 }
