@@ -397,8 +397,6 @@ class HP3325Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConn
                 if (interrogateParam.isEmpty() || responseText.startsWith(interrogateParam, ignoreCase = true)) {
                     return MessageResult.Result(ParameterValue.StringValue(stripPrefix(responseText, interrogateParam)))
                 } else {
-                    // Mismatch detected. We do nothing except log it and loop.
-                    // The loop sends the parameter query again, exhausting the stale response buffer naturally.
                     lastError = "Stale or mismatched device response. Expected $interrogateParam..., got: $responseText"
                 }
             } else if (result is MessageResult.Error) {
@@ -433,7 +431,6 @@ class HP3325Driver(deviceConnection: DeviceConnection) : DeviceDriver(deviceConn
                     }
                     return MessageResult.Result(ParameterValue.IntegerValue(parsedInt))
                 } else {
-                    // Mismatch detected. Loop naturally drains the buffer.
                     lastError = "Stale or mismatched device response. Expected $interrogateParam..., got: $responseText"
                 }
             } else if (result is MessageResult.Error) {

@@ -11,6 +11,7 @@ import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
+import kotlinx.serialization.Transient
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -38,7 +39,7 @@ sealed class RequestDTO {
     data class ReadRequestDTO(val requestId: Uuid, val returnType: String) : RequestDTO()
 
     @Serializable
-    data class WriteRequestDTO(val requestId: Uuid, val value: ParameterValue, val contentType: String) : RequestDTO()
+    data class WriteRequestDTO(val requestId: Uuid, val value: ParameterValue) : RequestDTO()
 }
 
 @OptIn(ExperimentalUuidApi::class, ExperimentalUnsignedTypes::class)
@@ -175,60 +176,7 @@ class RequestHandler @OptIn(DelicateCoroutinesApi::class) constructor(
                 return
             }
 
-            val parameterValueResult = validateAndConvertWriteRequest(
-                dto.value,
-                dto.contentType
-            )
-
-            parameterValueResult.onSuccess { paramValue ->
-                add(deviceUuid, DeviceRequest.ParameterWriteRequest(dto.requestId, parameter, paramValue))
-            }.onFailure {
-                eventBus.publishResolveError(dto.requestId, devices[deviceUuid]!!, parameter, it)
-            }
-        }
-    }
-
-
-    private fun validateAndConvertWriteRequest(
-        paramValue: ParameterValue,
-        contentType: String?
-    ): MessageResult<ParameterValue> {
-        return try {
-            when (contentType) {
-                "labeq/string" -> when (paramValue) {
-                    is ParameterValue.StringValue -> MessageResult.Result(paramValue)
-                    is ParameterValue.IntegerValue -> MessageResult.Result(ParameterValue.StringValue(paramValue.value.toString()))
-                    is ParameterValue.DoubleValue -> MessageResult.Result(ParameterValue.StringValue(paramValue.value.toString()))
-                    is ParameterValue.BytesValue -> MessageResult.Error("Cannot meaningfully convert BytesValue to labeq/string")
-                    else -> MessageResult.Error("Cannot convert ${paramValue::class.simpleName} to labeq/string")
-                }
-
-                "labeq/integer" -> when (paramValue) {
-                    is ParameterValue.IntegerValue -> MessageResult.Result(paramValue)
-                    is ParameterValue.DoubleValue -> MessageResult.Result(ParameterValue.IntegerValue(paramValue.value.toInt()))
-                    is ParameterValue.StringValue -> paramValue.value.toIntOrNull()?.let {
-                        MessageResult.Result(ParameterValue.IntegerValue(it))
-                    } ?: MessageResult.Error("Invalid integer string format: '${paramValue.value}'")
-                    else -> MessageResult.Error("Cannot convert ${paramValue::class.simpleName} to labeq/integer")
-                }
-
-                "labeq/bytes" -> when (paramValue) {
-                    is ParameterValue.BytesValue -> MessageResult.Result(paramValue)
-                    is ParameterValue.StringValue -> {
-                        val decoded = java.util.Base64.getDecoder().decode(paramValue.value)
-                        MessageResult.Result(ParameterValue.BytesValue(decoded))
-                    }
-                    else -> MessageResult.Error("Cannot convert ${paramValue::class.simpleName} to labeq/bytes")
-                }
-
-                null, "" -> MessageResult.Result(paramValue)
-                
-                else -> MessageResult.Error("Unsupported content type: $contentType")
-            }
-        } catch (e: IllegalArgumentException) {
-            MessageResult.Error("Decoding error (e.g. invalid base64): ${e.message}")
-        } catch (e: Exception) {
-            MessageResult.Error("Unexpected error validating payload: ${e.message}")
+            add(deviceUuid, DeviceRequest.ParameterWriteRequest(dto.requestId, parameter, dto.value))
         }
     }
 }
