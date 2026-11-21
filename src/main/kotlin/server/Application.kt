@@ -1,13 +1,9 @@
 package com.labeq.server
 
 import com.charleskorn.kaml.Yaml
-import com.labeq.builtin.connections.serial.*
-import com.labeq.builtin.drivers.hameg.hm107.HM107Device
-import com.labeq.builtin.drivers.hp.hp3325.HP3325Device
-import com.labeq.builtin.drivers.hp.hp3325.HP3325Driver
 import com.labeq.config.*
 import com.labeq.config.ServerConfig
-import com.labeq.device.DeviceMetadata
+import com.labeq.config.DeviceConfigLoader
 import com.labeq.script.configuration.RunnerConfiguration
 import com.labeq.script.configuration.RunnerConfigurationDefinition
 import com.sksamuel.hoplite.ConfigLoaderBuilder
@@ -19,11 +15,10 @@ import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.nio.file.Paths
 import kotlin.system.exitProcess
-import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 
 val CONFIG_DIR_PATH = "${Paths.get("config").toAbsolutePath()}"
 val RUNNER_CONFIG_DIR_PATH = "${Paths.get("config/runners").toAbsolutePath()}"
+val DEVICE_CONFIG_DIR_PATH = "${Paths.get("config/devices").toAbsolutePath()}"
 
 private lateinit var gateway: LabeqGateway
 
@@ -40,60 +35,17 @@ fun main(args: Array<String>) {
     EngineMain.main(args)
 }
 
-@OptIn(ExperimentalUuidApi::class)
 fun Application.module() {
     ensureConfigurationFiles()
     gateway = LabeqGateway(config)
     ensureRunnerConfigurationFiles()
     gateway.scriptManager.discoverScripts()
-
-    val generator = HP3325Device(
-        gateway.eventBus, HP3325Driver(
-            SerialConnection(
-                SerialConfiguration(
-                    port = "COM3",
-                    baudRate = 300,
-                    dataBits = 7,
-                    stopBits = SerialStopBits.ONE,
-                    flowControl = SerialFlowControl.SOFTWARE,
-                    parity = SerialParity.EVEN
-                )
-            )
-        ),
-        DeviceMetadata(
-            Uuid.parse("ce690329-0c10-478e-a15a-70c061b4f8c2"),
-            "F. Generator",
-            "HP 3325B",
-            "Hewlett Packard",
-            "com.labeq.builtin.drivers.hp.hp3325.HP3325Driver",
-            listOf("generator")
-        )
+    val deviceConfigLoader = DeviceConfigLoader(
+        gateway,
+        gateway.deviceRegistry,
+        gateway.connectionRegistry
     )
-
-    val scope = HM107Device(
-        gateway.eventBus, HP3325Driver(
-            SerialConnection(
-                SerialConfiguration(
-                    port = "COM2",
-                    baudRate = 115200,
-                    dataBits = 7,
-                    stopBits = SerialStopBits.ONE,
-                    flowControl = SerialFlowControl.SOFTWARE,
-                    parity = SerialParity.EVEN
-                )
-            )
-        ),
-        DeviceMetadata(
-            Uuid.random(),
-            "Oscilloscope",
-            "HM1507-3",
-            "HAMEG",
-            "com.labeq.builtin.drivers.hameg.hm107.HM107Driver",
-            listOf("scope")
-        )
-    )
-
-    gateway.registerDevices(generator)
+    deviceConfigLoader.loadDirectory(Paths.get(DEVICE_CONFIG_DIR_PATH))
 
     configureHTTP()
     configureSerialization()

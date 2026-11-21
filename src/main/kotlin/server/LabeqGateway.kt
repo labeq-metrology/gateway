@@ -4,8 +4,10 @@ import com.labeq.communication.MQTTEventBus
 import com.labeq.communication.RequestHandler
 import com.labeq.config.LabeqGatewayConfiguration
 import com.labeq.device.GenericDevice
+import com.labeq.device.DeviceRegistry
 import com.labeq.script.ScriptManager
 import com.labeq.script.rpc.ScriptRPCWorker
+import com.labeq.transport.ConnectionRegistry
 import io.ktor.util.logging.*
 import org.slf4j.LoggerFactory
 import kotlin.uuid.ExperimentalUuidApi
@@ -16,6 +18,8 @@ class LabeqGateway(val configuration: LabeqGatewayConfiguration) {
     private val log: Logger = LoggerFactory.getLogger("LabeqGateway")
 
     var devices = mutableMapOf<Uuid, GenericDevice>()
+    val deviceRegistry = DeviceRegistry()
+    val connectionRegistry = ConnectionRegistry()
 
     val eventBus = MQTTEventBus(configuration.mqtt, this)
     val requestHandler = RequestHandler(devices, eventBus)
